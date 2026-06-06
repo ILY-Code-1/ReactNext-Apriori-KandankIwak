@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // produk: publik baca, admin (siapa pun yang login) tulis
+    match /products/{id} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // rules Apriori: publik baca (widget "Sering Dibeli Bersama"),
+    // admin tulis (saat jalankan analisis)
+    match /rules/{id} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // transaksi: tulis publik (checkout pelanggan), baca admin only
+    match /transactions/{id} {
+      allow create: if true;
+      allow read: if request.auth != null;
+    }
+
+    // pesanan: tulis publik (checkout pelanggan),
+    // GET satu-doc publik (pelanggan lacak by kode),
+    // LIST hanya admin (cegah enumerasi semua pesanan),
+    // UPDATE hanya admin (ubah status)
+    match /orders/{code} {
+      allow create: if true;
+      allow get: if true;
+      allow list, update: if request.auth != null;
+    }
+  }
+}

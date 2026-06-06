@@ -1,0 +1,32 @@
+/* Katalog page chrome */
+body { background: #eef2f8; }
+.ki-cat-head { background: linear-gradient(120deg, var(--navy) 0%, var(--navy-900) 100%); position: sticky; top: 0; z-index: 60; }
+.ki-toc-wrap { padding: 26px 28px 0; }
+.ki-toc { background: #fff; border-radius: var(--r-lg); box-shadow: var(--shadow-sm); padding: 20px 24px; }
+.ki-toc-title { font-weight: 800; color: var(--ink); font-size: 15px; }
+.ki-toc-group { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; margin-top: 6px; }
+.ki-toc-item { display: flex; gap: 8px; align-items: center; padding: 5px 0; font-size: 13.5px; font-weight: 600; color: var(--body); }
+.ki-toc-item:hover { color: var(--navy); }
+
+.ki-figs { padding: 30px 28px 10px; display: flex; flex-direction: column; gap: 46px; }
+.ki-group-head { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--navy); margin: 14px 0 -10px; }
+
+.ki-fig { display: flex; flex-direction: column; gap: 16px; }
+.ki-fig-cap { display: flex; gap: 14px; align-items: flex-start; }
+.ki-fig-tag { flex: 0 0 auto; background: var(--navy); color: #fff; font-weight: 800; font-size: 13px; padding: 7px 13px; border-radius: 9px; letter-spacing: .01em; }
+.ki-fig-foot { text-align: center; font-size: 13px; font-weight: 700; color: var(--body); }
+
+/* browser frame */
+.ki-frame { border-radius: 16px; overflow: hidden; box-shadow: 0 30px 70px -28px rgba(28,26,77,.4), 0 0 0 1px var(--line); background: #fff; }
+.ki-frame-bar { height: 40px; background: #f1f4fa; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 16px; }
+.ki-frame-url { margin-left: 14px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 5px 14px; font-size: 12px; color: var(--muted); font-weight: 600; min-width: 240px; }
+.ki-frame-body { background: var(--bg); }
+
+/* print: one figure per page */
+@media print {
+  .ki-cat-head, .ki-toc-wrap, .ki-group-head { display: none !important; }
+  body { background: #fff; }
+  .ki-figs { padding: 0; gap: 0; }
+  .ki-fig { page-break-inside: avoid; break-inside: avoid; page-break-after: always; padding: 18px 0; }
+  .ki-frame { box-shadow: 0 0 0 1px var(--line); }
+}
