@@ -8,7 +8,7 @@ export default function AprioriPage() {
   const [confidence, setConfidence] = useState(0.3);
 
   return (
-    <div className="col gap-20 kiup">
+    <div className="col gap-20 kiup" style={{ minHeight: "calc(100vh - 130px)" }}>
       <div
         className="card"
         style={{
@@ -46,7 +46,7 @@ export default function AprioriPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 20, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 20, alignItems: "start", flex: 1 }}>
         <div className="col gap-18" style={{ position: "sticky", top: 88 }}>
           <div className="card" style={{ padding: 22 }}>
             <div className="row gap-10" style={{ marginBottom: 20 }}>

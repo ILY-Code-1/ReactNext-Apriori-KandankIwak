@@ -171,7 +171,7 @@ export default function ManageProductsPage() {
   }
 
   return (
-    <div className="col gap-18 kiup">
+    <div className="col gap-18 kiup" style={{ minHeight: "calc(100vh - 130px)" }}>
       <div className="row">
         <div className="col" style={{ gap: 2 }}>
           <span className="mut" style={{ fontSize: 13, fontWeight: 600 }}>
@@ -200,7 +200,7 @@ export default function ManageProductsPage() {
         </div>
       )}
 
-      <div className="card" style={{ overflow: "hidden" }}>
+      <div className="card" style={{ overflow: "hidden", flex: 1, display: "flex", flexDirection: "column" }}>
         {loading ? (
           <div
             className="col"
@@ -396,8 +396,11 @@ export default function ManageProductsPage() {
             inset: 0,
             background: "rgba(28,26,77,.4)",
             backdropFilter: "blur(3px)",
-            display: "grid",
-            placeItems: "center",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "flex-start",
+            padding: "90px 16px 24px",
+            overflowY: "auto",
             zIndex: 100,
           }}
         >
@@ -406,10 +409,10 @@ export default function ManageProductsPage() {
             onClick={(e) => e.stopPropagation()}
             style={{
               width: 520,
-              maxHeight: "90vh",
-              overflow: "auto",
+              maxWidth: "100%",
               padding: 26,
               boxShadow: "var(--shadow-lg)",
+              marginBottom: 24,
             }}
           >
             <div className="row" style={{ marginBottom: 18 }}>
@@ -481,8 +484,20 @@ export default function ManageProductsPage() {
                       <span style={{ fontWeight: 700, color: "var(--ink)" }}>
                         Klik untuk unggah gambar
                       </span>
-                      <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                        PNG / JPG. Akan diunggah ke Cloudinary saat disimpan.
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: "var(--muted)",
+                          textAlign: "center",
+                          lineHeight: 1.5,
+                          maxWidth: 360,
+                        }}
+                      >
+                        Rasio <b style={{ color: "var(--ink)" }}>1:1 (persegi)</b>,
+                        minimal <b style={{ color: "var(--ink)" }}>800×800 px</b>,
+                        maks 2 MB. Format JPG / PNG / WebP.
+                        <br />
+                        Foto terang dengan latar polos memberi hasil terbaik di kartu produk.
                       </span>
                     </div>
                   )}

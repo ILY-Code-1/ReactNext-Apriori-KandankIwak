@@ -8,7 +8,6 @@ import {
   query,
   serverTimestamp,
   updateDoc,
-  where,
 } from "firebase/firestore";
 import { db } from "./client";
 import { COL } from "./collections";
@@ -19,11 +18,10 @@ const productDoc = (id) => doc(db, COL.PRODUCTS, id);
 const mapSnap = (snap) => ({ id: snap.id, ...snap.data() });
 
 export async function getAllProducts({ onlyActive = false } = {}) {
-  const q = onlyActive
-    ? query(productsRef(), where("active", "==", true), orderBy("created_at", "desc"))
-    : query(productsRef(), orderBy("created_at", "desc"));
+  const q = query(productsRef(), orderBy("created_at", "desc"));
   const snap = await getDocs(q);
-  return snap.docs.map(mapSnap);
+  const all = snap.docs.map(mapSnap);
+  return onlyActive ? all.filter((p) => p.active !== false) : all;
 }
 
 export async function getProductById(id) {

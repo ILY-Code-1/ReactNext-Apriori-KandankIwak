@@ -88,7 +88,7 @@ export default function ManageOrdersPage() {
   const shown = filter === "all" ? orders : orders.filter((o) => o.status === filter);
 
   return (
-    <div className="col gap-18 kiup">
+    <div className="col gap-18 kiup" style={{ minHeight: "calc(100vh - 130px)" }}>
       <div className="row gap-8" style={{ flexWrap: "wrap" }}>
         {FILTERS.map((f) => (
           <button
@@ -136,7 +136,7 @@ export default function ManageOrdersPage() {
         </div>
       )}
 
-      <div className="card" style={{ overflow: "hidden" }}>
+      <div className="card" style={{ overflow: "hidden", flex: 1, display: "flex", flexDirection: "column" }}>
         {loading ? (
           <div
             className="col"

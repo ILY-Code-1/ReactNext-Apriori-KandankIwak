@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
@@ -9,7 +10,8 @@ import { useAuth } from "@/context/AuthContext";
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: "grid" },
   { href: "/admin/products", label: "Kelola Produk", icon: "pkg" },
-  { href: "/admin/orders", label: "Kelola Pesanan", icon: "receipt", badge: 2 },
+  { href: "/admin/orders", label: "Kelola Pesanan", icon: "receipt" },
+  { href: "/admin/payment-methods", label: "Metode Pembayaran", icon: "card" },
   { href: "/admin/transactions", label: "Data Transaksi", icon: "chart" },
   { href: "/admin/apriori", label: "Analisis Apriori", icon: "spark", accent: true },
 ];
@@ -18,6 +20,7 @@ const TITLES = {
   "/admin": "Dashboard",
   "/admin/products": "Kelola Produk",
   "/admin/orders": "Kelola Pesanan",
+  "/admin/payment-methods": "Metode Pembayaran",
   "/admin/transactions": "Data Transaksi",
   "/admin/apriori": "Analisis Apriori",
 };
@@ -27,17 +30,23 @@ export default function AdminShell({ children, lastRun = "Belum dijalankan" }) {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const title = TITLES[pathname] || "Admin";
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const initial = (user?.email || "?").charAt(0).toUpperCase();
 
-  const handleLogout = async () => {
-    await signOut();
-    router.replace("/admin/login");
+  const handleConfirmLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await signOut();
+      router.replace("/admin/login");
+    } catch {
+      setLoggingOut(false);
+    }
   };
 
   return (
     <div
-      className="layout-aside-main"
       style={{
         display: "grid",
         gridTemplateColumns: "248px 1fr",
@@ -123,18 +132,14 @@ export default function AdminShell({ children, lastRun = "Belum dijalankan" }) {
               <span style={{ color: "var(--sky-600)" }}>
                 <Icon name="info" size={16} />
               </span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--navy)" }}>
-                Apriori terakhir
-              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--navy)" }}>Apriori terakhir</span>
             </div>
-            <p style={{ fontSize: 12, color: "var(--body)", margin: "6px 0 0", fontWeight: 600 }}>
-              {lastRun}
-            </p>
+            <p style={{ fontSize: 12, color: "var(--body)", margin: "6px 0 0", fontWeight: 600 }}>{lastRun}</p>
           </div>
           <button
             type="button"
             className="row gap-12"
-            onClick={handleLogout}
+            onClick={() => setConfirmLogout(true)}
             style={{
               width: "100%",
               padding: "11px 14px",
@@ -242,6 +247,70 @@ export default function AdminShell({ children, lastRun = "Belum dijalankan" }) {
         </header>
         <main style={{ padding: 30, flex: 1, minWidth: 0 }}>{children}</main>
       </div>
+
+      {confirmLogout && (
+        <div
+          onClick={() => !loggingOut && setConfirmLogout(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(28,26,77,.4)",
+            backdropFilter: "blur(3px)",
+            display: "grid",
+            placeItems: "center",
+            padding: 16,
+            zIndex: 200,
+          }}
+        >
+          <div
+            className="card kiup"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 380,
+              maxWidth: "100%",
+              padding: 26,
+              boxShadow: "var(--shadow-lg)",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              alignItems: "center",
+            }}
+          >
+            <span
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 16,
+                background: "var(--red-50)",
+                color: "var(--red)",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              <Icon name="logout" size={26} />
+            </span>
+            <h3 style={{ fontSize: 19 }}>Keluar dari panel admin?</h3>
+            <p className="mut" style={{ margin: 0, fontSize: 14, lineHeight: 1.55 }}>
+              Kamu perlu masuk lagi untuk mengelola produk dan pesanan.
+            </p>
+            <div className="row gap-10" style={{ width: "100%", marginTop: 8 }}>
+              <button type="button" className="btn btn-ghost btn-block" onClick={() => setConfirmLogout(false)} disabled={loggingOut}>
+                Batal
+              </button>
+              <button type="button" className="btn btn-primary btn-block" onClick={handleConfirmLogout} disabled={loggingOut} style={{ background: "var(--red)" }}>
+                {loggingOut ? (
+                  <>
+                    <span className="ki-spin" /> Keluar…
+                  </>
+                ) : (
+                  "Ya, Keluar"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

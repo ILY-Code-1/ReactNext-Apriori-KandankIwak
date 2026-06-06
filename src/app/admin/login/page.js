@@ -16,6 +16,7 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -55,8 +56,7 @@ export default function AdminLoginPage() {
             position: "absolute",
             inset: 0,
             opacity: 0.16,
-            background:
-              "radial-gradient(50% 40% at 80% 10%, var(--sky), transparent 60%), radial-gradient(40% 40% at 10% 90%, var(--sky), transparent 60%)",
+            background: "radial-gradient(50% 40% at 80% 10%, var(--sky), transparent 60%), radial-gradient(40% 40% at 10% 90%, var(--sky), transparent 60%)",
           }}
         />
         <div style={{ position: "relative", zIndex: 1 }}>
@@ -75,25 +75,17 @@ export default function AdminLoginPage() {
           <div style={{ width: 150, height: 120 }}>
             <Illo type="whole" size={210} />
           </div>
-          <h2 style={{ color: "#fff", fontSize: 30, maxWidth: 360, lineHeight: 1.15 }}>
-            Panel Pemilik Kandank Iwak
-          </h2>
-          <p style={{ color: "#bcc0e4", fontSize: 15, maxWidth: 360, margin: 0, lineHeight: 1.6 }}>
-            Kelola produk, pesanan, dan jalankan analisis Apriori untuk rekomendasi cerdas di toko
-            Anda.
-          </p>
+          <h2 style={{ color: "#fff", fontSize: 30, maxWidth: 360, lineHeight: 1.15 }}>Panel Pemilik Kandank Iwak</h2>
+          <p style={{ color: "#bcc0e4", fontSize: 15, maxWidth: 360, margin: 0, lineHeight: 1.6 }}>Kelola produk, pesanan, dan jalankan analisis Apriori untuk rekomendasi cerdas di toko Anda.</p>
         </div>
       </div>
 
-      <form
-        onSubmit={submit}
-        style={{ display: "grid", placeItems: "center", padding: 40, background: "var(--bg)" }}
-      >
+      <form onSubmit={submit} style={{ display: "grid", placeItems: "center", padding: 40, background: "var(--bg)" }}>
         <div className="col gap-20" style={{ width: 360 }}>
           <div className="col gap-6">
-            <h1 style={{ fontSize: 28 }}>Masuk Admin</h1>
+            <h1 style={{ fontSize: 28 }}>Login Dashboard</h1>
             <p className="mut" style={{ margin: 0 }}>
-              Gunakan akun admin yang dibuat lewat Firebase Console.
+              Login Admin Untuk Kelola Dashboard
             </p>
           </div>
 
@@ -103,16 +95,7 @@ export default function AdminLoginPage() {
               <span style={{ position: "absolute", left: 14, top: 13, color: "var(--muted)" }}>
                 <Icon name="user" size={18} />
               </span>
-              <input
-                type="email"
-                className="input"
-                style={{ paddingLeft: 42 }}
-                placeholder="admin@kandankiwak.id"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
+              <input type="email" className="input" style={{ paddingLeft: 42 }} placeholder="admin@kandankiwak.id" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
             </div>
           </div>
 
@@ -123,15 +106,34 @@ export default function AdminLoginPage() {
                 <Icon name="lock" size={18} />
               </span>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 className="input"
-                style={{ paddingLeft: 42 }}
+                style={{ paddingLeft: 42, paddingRight: 44 }}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                title={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                style={{
+                  position: "absolute",
+                  right: 8,
+                  top: 6,
+                  width: 34,
+                  height: 34,
+                  display: "grid",
+                  placeItems: "center",
+                  borderRadius: 8,
+                  color: "var(--muted)",
+                }}
+              >
+                <Icon name={showPassword ? "eyeOff" : "eye"} size={18} />
+              </button>
             </div>
           </div>
 
@@ -152,11 +154,7 @@ export default function AdminLoginPage() {
             </div>
           )}
 
-          <button
-            type="submit"
-            className="btn btn-primary btn-lg btn-block"
-            disabled={submitting}
-          >
+          <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={submitting}>
             {submitting ? (
               <>
                 <span className="ki-spin" /> Memproses…

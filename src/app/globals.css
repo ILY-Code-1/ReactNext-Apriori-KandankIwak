@@ -192,6 +192,9 @@ h1, h2, h3, h4 { color: var(--ink); margin: 0; line-height: 1.12; letter-spacing
 .grid-cards-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
 .grid-cards-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .grid-cards-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+
+/* dashboard stat cards: tetap horizontal (4 kolom), kotak persegi */
+.stat-cards-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 .layout-main-aside { display: grid; grid-template-columns: 1fr 360px; gap: 26px; align-items: start; }
 .layout-aside-main { display: grid; grid-template-columns: 248px 1fr; gap: 26px; align-items: start; }
 .layout-2col-wide { display: grid; grid-template-columns: 1.6fr 1fr; gap: 18px; }
@@ -219,6 +222,8 @@ h1, h2, h3, h4 { color: var(--ink); margin: 0; line-height: 1.12; letter-spacing
   .grid-cards-2,
   .grid-cards-3,
   .grid-cards-4 { grid-template-columns: 1fr !important; }
+  /* stat cards tetap horizontal di mobile (2x2 supaya tetap kebaca) */
+  .stat-cards-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .btn-lg { padding: 13px 22px; font-size: 15px; }
   .hide-mobile { display: none !important; }
   .scroll-x-mobile { overflow-x: auto; }

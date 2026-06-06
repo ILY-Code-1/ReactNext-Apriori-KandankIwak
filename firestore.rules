@@ -22,6 +22,13 @@ service cloud.firestore {
       allow read: if request.auth != null;
     }
 
+    // metode pembayaran: publik baca (ditampilkan di checkout),
+    // admin tulis (CRUD via /admin/payment-methods)
+    match /payment_methods/{id} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
     // pesanan: tulis publik (checkout pelanggan),
     // GET satu-doc publik (pelanggan lacak by kode),
     // LIST hanya admin (cegah enumerasi semua pesanan),

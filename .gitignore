@@ -39,6 +39,9 @@ yarn-error.log*
 .idea/
 Thumbs.db
 
+# design reference (acuan visual, tidak dipakai runtime)
+/design-reference/
+
 # firebase admin / service account keys (jangan pernah ter-commit)
 *-firebase-adminsdk-*.json
 serviceAccountKey*.json

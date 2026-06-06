@@ -130,6 +130,33 @@ const PATHS = {
       <path d="m4 19 5-5 4 4 3-3 4 4" />
     </>
   ),
+  eye: (
+    <>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  eyeOff: (
+    <>
+      <path d="m3 3 18 18" />
+      <path d="M10.58 10.58a3 3 0 0 0 4.24 4.24" />
+      <path d="M9.88 5.09A9.5 9.5 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+      <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+    </>
+  ),
+  card: (
+    <>
+      <rect x="3" y="6" width="18" height="13" rx="2.5" />
+      <path d="M3 10.5h18" />
+      <path d="M7 15h3" />
+    </>
+  ),
+  copy: (
+    <>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+    </>
+  ),
 };
 
 export default function Icon({ name, size = 20, stroke = 2, className, style }) {

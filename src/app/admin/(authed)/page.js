@@ -139,8 +139,8 @@ export default function DashboardPage() {
   const seriesMax = Math.max(1, ...stats.series.map((s) => s.value));
 
   return (
-    <div className="col gap-22 kiup">
-      <div className="grid-cards-4">
+    <div className="col gap-22 kiup" style={{ minHeight: "calc(100vh - 130px)" }}>
+      <div className="stat-cards-row">
         <StatCard
           icon="chart"
           label="Penjualan Bulan Ini"

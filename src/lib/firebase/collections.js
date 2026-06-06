@@ -4,6 +4,7 @@ export const COL = {
   RULES: "rules",
   ORDERS: "orders",
   ADMINS: "admins",
+  PAYMENT_METHODS: "payment_methods",
 };
 
 export const ORDER_STATUS = {

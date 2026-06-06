@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
+import { WhatsappIcon } from "@/components/ui/BrandIcons";
 import Illo from "@/components/ui/Illo";
 import { useCart } from "@/context/CartContext";
 import { getAllProducts } from "@/lib/firebase/products";
+import { getAllPaymentMethods } from "@/lib/firebase/payment-methods";
 import { addOrderAndTransaction } from "@/lib/firebase/orders";
 import { generateOrderCode } from "@/lib/utils/order-code";
 import { buildOrderMessage, buildWhatsAppUrl } from "@/lib/whatsapp/build-message";
@@ -18,6 +20,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { items, hydrated, clear } = useCart();
   const [productMap, setProductMap] = useState({});
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
   const [form, setForm] = useState({ name: "", contact: "", notes: "" });
@@ -26,8 +29,11 @@ export default function CheckoutPage() {
   const [success, setSuccess] = useState(null);
 
   useEffect(() => {
-    getAllProducts({ onlyActive: true })
-      .then((all) => setProductMap(Object.fromEntries(all.map((p) => [p.id, p]))))
+    Promise.all([getAllProducts({ onlyActive: true }), getAllPaymentMethods()])
+      .then(([products, methods]) => {
+        setProductMap(Object.fromEntries(products.map((p) => [p.id, p])));
+        setPaymentMethods(methods);
+      })
       .finally(() => setLoadingProducts(false));
   }, []);
 
@@ -120,7 +126,7 @@ export default function CheckoutPage() {
   }
 
   if (success) {
-    return <SuccessCard success={success} />;
+    return <SuccessCard success={success} paymentMethods={paymentMethods} />;
   }
 
   return (
@@ -218,7 +224,7 @@ export default function CheckoutPage() {
                 flex: "0 0 auto",
               }}
             >
-              <Icon name="wa" size={22} />
+              <WhatsappIcon size={22} />
             </span>
             <div className="col" style={{ gap: 4 }}>
               <h3 style={{ fontSize: 16 }}>Konfirmasi via WhatsApp</h3>
@@ -350,7 +356,7 @@ export default function CheckoutPage() {
               </>
             ) : valid ? (
               <>
-                <Icon name="wa" size={18} /> Pesan via WhatsApp
+                <WhatsappIcon size={18} /> Pesan via WhatsApp
               </>
             ) : (
               "Lengkapi data dulu"
@@ -365,88 +371,81 @@ export default function CheckoutPage() {
   );
 }
 
-function SuccessCard({ success }) {
-  const [copied, setCopied] = useState(false);
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(success.code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {}
-  };
-
+function SuccessCard({ success, paymentMethods = [] }) {
   return (
-    <div className="wrap" style={{ padding: "60px 28px", display: "grid", placeItems: "center" }}>
+    <div className="wrap" style={{ padding: "40px 28px 60px", display: "grid", placeItems: "center" }}>
       <div
         className="card kiup"
         style={{
-          padding: 40,
-          maxWidth: 520,
-          textAlign: "center",
+          padding: 32,
+          maxWidth: 560,
+          width: "100%",
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          gap: 14,
+          alignItems: "stretch",
+          gap: 18,
         }}
       >
-        <span
-          style={{
-            width: 76,
-            height: 76,
-            borderRadius: 999,
-            background: "var(--green-50)",
-            color: "var(--green)",
-            display: "grid",
-            placeItems: "center",
-          }}
-        >
-          <Icon name="check" size={42} stroke={2.5} />
-        </span>
-        <h2 style={{ fontSize: 26 }}>Pesanan Dibuat!</h2>
-        <p className="mut" style={{ margin: 0 }}>
-          Simpan kode pesanan di bawah. Kami akan konfirmasi pembayaran lewat
-          WhatsApp. Jika tab WhatsApp tidak terbuka otomatis, klik tombol di bawah.
-        </p>
+        <div className="col" style={{ alignItems: "center", gap: 10, textAlign: "center" }}>
+          <span
+            style={{
+              width: 76,
+              height: 76,
+              borderRadius: 999,
+              background: "var(--green-50)",
+              color: "var(--green)",
+              display: "grid",
+              placeItems: "center",
+            }}
+          >
+            <Icon name="check" size={42} stroke={2.5} />
+          </span>
+          <h2 style={{ fontSize: 26 }}>Pesanan Dibuat!</h2>
+          <p className="mut" style={{ margin: 0 }}>
+            Lakukan pembayaran ke salah satu rekening di bawah, lalu kirim bukti
+            transfer via WhatsApp.
+          </p>
+        </div>
 
-        <button
-          type="button"
-          onClick={copy}
-          className="card card-line"
-          style={{
-            padding: 16,
-            width: "100%",
-            boxShadow: "none",
-            cursor: "pointer",
-            border: "2px dashed var(--line)",
-          }}
-        >
-          <div className="row">
-            <div className="col" style={{ gap: 2, alignItems: "flex-start" }}>
-              <span className="mut" style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em" }}>
-                Kode Pesanan
-              </span>
-              <span className="num" style={{ fontSize: 22, fontWeight: 800, color: "var(--ink)" }}>
-                {success.code}
-              </span>
-            </div>
-            <div className="spacer" />
-            <span
-              className="row gap-6"
-              style={{ fontSize: 12.5, fontWeight: 700, color: copied ? "var(--green)" : "var(--sky-600)" }}
+        <CopyRow label="Kode Pesanan" value={success.code} mono />
+        <CopyRow
+          label="Total yang harus dibayar"
+          value={rupiah(success.total)}
+          copyText={String(Math.round(success.total))}
+          accent
+        />
+
+        <div className="col gap-10">
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: ".04em",
+              color: "var(--muted)",
+            }}
+          >
+            Metode Pembayaran
+          </span>
+          {paymentMethods.length === 0 ? (
+            <div
+              className="row gap-8"
+              style={{
+                padding: "12px 14px",
+                borderRadius: 12,
+                background: "var(--amber-50)",
+                color: "#b9810a",
+                fontSize: 13,
+                fontWeight: 600,
+              }}
             >
-              <Icon name={copied ? "check" : "edit"} size={15} stroke={2.5} />
-              {copied ? "Tersalin" : "Salin"}
-            </span>
-          </div>
-          <div className="row" style={{ marginTop: 10 }}>
-            <span className="mut" style={{ fontSize: 13.5 }}>Total</span>
-            <div className="spacer" />
-            <span className="num" style={{ fontWeight: 800, color: "var(--navy)" }}>
-              {rupiah(success.total)}
-            </span>
-          </div>
-        </button>
+              <Icon name="info" size={16} />
+              Admin belum menambah metode pembayaran. Tanya lewat WhatsApp.
+            </div>
+          ) : (
+            paymentMethods.map((m) => <PaymentMethodRow key={m.id} method={m} />)
+          )}
+        </div>
 
         <a
           href={success.waUrl}
@@ -454,7 +453,7 @@ function SuccessCard({ success }) {
           rel="noopener noreferrer"
           className="btn btn-success btn-lg btn-block"
         >
-          <Icon name="wa" size={20} /> Buka WhatsApp
+          <WhatsappIcon size={20} /> Buka WhatsApp
         </a>
         <Link href={`/track?code=${success.code}`} className="btn btn-outline btn-block">
           Lacak Pesanan
@@ -463,6 +462,156 @@ function SuccessCard({ success }) {
           Belanja Lagi
         </Link>
       </div>
+    </div>
+  );
+}
+
+function CopyRow({ label, value, copyText, mono, accent }) {
+  const [copied, setCopied] = useState(false);
+  const handle = async () => {
+    try {
+      await navigator.clipboard.writeText(copyText ?? value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {}
+  };
+  return (
+    <button
+      type="button"
+      onClick={handle}
+      className="card card-line"
+      style={{
+        padding: 14,
+        boxShadow: "none",
+        cursor: "pointer",
+        border: `2px dashed ${accent ? "var(--sky)" : "var(--line)"}`,
+        background: accent ? "var(--sky-50)" : "#fff",
+        textAlign: "left",
+        width: "100%",
+      }}
+    >
+      <div className="row gap-10">
+        <div className="col" style={{ gap: 2, flex: 1, minWidth: 0 }}>
+          <span
+            style={{
+              fontSize: 11.5,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: ".04em",
+              color: "var(--muted)",
+            }}
+          >
+            {label}
+          </span>
+          <span
+            className={mono ? "num" : ""}
+            style={{
+              fontSize: accent ? 22 : 18,
+              fontWeight: 800,
+              color: accent ? "var(--navy)" : "var(--ink)",
+              wordBreak: "break-all",
+            }}
+          >
+            {value}
+          </span>
+        </div>
+        <span
+          className="row gap-6"
+          style={{
+            fontSize: 12.5,
+            fontWeight: 700,
+            color: copied ? "var(--green)" : "var(--sky-600)",
+            flex: "0 0 auto",
+          }}
+        >
+          <Icon name={copied ? "check" : "copy"} size={15} stroke={2.5} />
+          {copied ? "Tersalin" : "Salin"}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function PaymentMethodRow({ method }) {
+  const [copied, setCopied] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const label = (method.payment_method || "").toUpperCase();
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(method.account_number || "");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {}
+  };
+
+  return (
+    <div
+      className="row gap-12"
+      style={{
+        padding: 12,
+        borderRadius: 12,
+        background: "var(--bg)",
+        alignItems: "center",
+      }}
+    >
+      <span
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: 12,
+          background: "#fff",
+          display: "grid",
+          placeItems: "center",
+          flex: "0 0 auto",
+          boxShadow: "inset 0 0 0 1px var(--line)",
+          overflow: "hidden",
+        }}
+      >
+        {imgError ? (
+          <Icon name="card" size={26} style={{ color: "var(--muted)" }} />
+        ) : (
+          <img
+            src={`/payment-icon/${method.payment_method}.webp`}
+            alt={label}
+            onError={() => setImgError(true)}
+            style={{ maxWidth: "80%", maxHeight: "80%", objectFit: "contain" }}
+          />
+        )}
+      </span>
+      <div className="col" style={{ gap: 2, flex: 1, minWidth: 0 }}>
+        <div className="row gap-8">
+          <span style={{ fontWeight: 800, color: "var(--ink)", fontSize: 14.5 }}>
+            {label}
+          </span>
+          <span className="mut" style={{ fontSize: 12.5 }}>
+            a.n. {method.account_name}
+          </span>
+        </div>
+        <span
+          className="num"
+          style={{ fontSize: 17, fontWeight: 800, color: "var(--navy)", wordBreak: "break-all" }}
+        >
+          {method.account_number}
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={copy}
+        className="row gap-6"
+        style={{
+          padding: "8px 12px",
+          borderRadius: 999,
+          fontSize: 12.5,
+          fontWeight: 700,
+          color: copied ? "#fff" : "var(--sky-600)",
+          background: copied ? "var(--green)" : "var(--sky-50)",
+          flex: "0 0 auto",
+        }}
+      >
+        <Icon name={copied ? "check" : "copy"} size={14} stroke={2.5} />
+        {copied ? "Tersalin" : "Salin"}
+      </button>
     </div>
   );
 }

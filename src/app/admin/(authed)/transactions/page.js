@@ -2,7 +2,7 @@ import Icon from "@/components/ui/Icon";
 
 export default function TransactionsPlaceholderPage() {
   return (
-    <div className="col gap-18 kiup">
+    <div className="col gap-18 kiup" style={{ minHeight: "calc(100vh - 130px)" }}>
       <div
         className="card"
         style={{
@@ -43,7 +43,9 @@ export default function TransactionsPlaceholderPage() {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
+          justifyContent: "center",
           gap: 12,
+          flex: 1,
         }}
       >
         <span

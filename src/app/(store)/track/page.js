@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Icon from "@/components/ui/Icon";
+import { WhatsappIcon } from "@/components/ui/BrandIcons";
 import { getOrderByCode } from "@/lib/firebase/orders";
 import { ORDER_STATUS_FLOW } from "@/lib/firebase/collections";
 import { rupiah, formatDateTime } from "@/lib/utils/format";
@@ -339,7 +340,7 @@ export default function TrackPage() {
               rel="noopener noreferrer"
               className="btn btn-success btn-block"
             >
-              <Icon name="wa" size={18} /> Chat Admin
+              <WhatsappIcon size={18} /> Chat Admin
             </a>
             <Link href="/products" className="btn btn-ghost btn-block">
               Belanja lagi
