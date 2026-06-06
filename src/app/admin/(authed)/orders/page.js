@@ -29,6 +29,7 @@ export default function ManageOrdersPage() {
   const [detail, setDetail] = useState(null);
   const [busyCode, setBusyCode] = useState(null);
   const [toast, setToast] = useState(null);
+  const [pendingChange, setPendingChange] = useState(null);
 
   useEffect(() => {
     refresh();
@@ -52,11 +53,16 @@ export default function ManageOrdersPage() {
     setTimeout(() => setToast(null), 2200);
   }
 
-  async function advance(order) {
+  function requestAdvance(order) {
     const idx = ORDER_STATUS_FLOW.indexOf(order.status);
     if (idx < 0 || idx >= ORDER_STATUS_FLOW.length - 1) return;
     const next = ORDER_STATUS_FLOW[idx + 1];
+    setPendingChange({ order, next });
+  }
 
+  async function applyAdvance() {
+    if (!pendingChange) return;
+    const { order, next } = pendingChange;
     setBusyCode(order.code);
     try {
       await updateOrderStatus(order.code, next);
@@ -67,6 +73,7 @@ export default function ManageOrdersPage() {
         setDetail({ ...detail, status: next });
       }
       showToast(`Status ${order.code} diperbarui`);
+      setPendingChange(null);
     } catch {
       showToast("Gagal memperbarui status");
     } finally {
@@ -246,7 +253,7 @@ export default function ManageOrdersPage() {
                             type="button"
                             className="btn btn-ghost btn-sm"
                             disabled={busyCode === o.code}
-                            onClick={() => advance(o)}
+                            onClick={() => requestAdvance(o)}
                           >
                             {busyCode === o.code ? (
                               <span className="ki-spin" />
@@ -412,7 +419,7 @@ export default function ManageOrdersPage() {
                   type="button"
                   className="btn btn-primary btn-block"
                   disabled={busyCode === detail.code}
-                  onClick={() => advance(detail)}
+                  onClick={() => requestAdvance(detail)}
                 >
                   {busyCode === detail.code ? (
                     <>
@@ -428,7 +435,132 @@ export default function ManageOrdersPage() {
         </div>
       )}
 
+      {pendingChange && (
+        <ConfirmStatusDialog
+          pending={pendingChange}
+          busy={busyCode === pendingChange.order.code}
+          onCancel={() => setPendingChange(null)}
+          onConfirm={applyAdvance}
+        />
+      )}
+
       {toast && <Toast msg={toast} />}
+    </div>
+  );
+}
+
+const STATUS_LABEL = {
+  ordered: "Dipesan",
+  paid: "Dibayar",
+  shipped: "Dikirim",
+  completed: "Selesai",
+};
+
+function ConfirmStatusDialog({ pending, busy, onCancel, onConfirm }) {
+  const { order, next } = pending;
+  const fromLabel = STATUS_LABEL[order.status] || order.status;
+  const toLabel = STATUS_LABEL[next] || next;
+
+  return (
+    <div
+      onClick={() => !busy && onCancel()}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(28,26,77,.4)",
+        backdropFilter: "blur(3px)",
+        display: "grid",
+        placeItems: "center",
+        padding: 16,
+        zIndex: 200,
+      }}
+    >
+      <div
+        className="card kiup"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 420,
+          maxWidth: "100%",
+          padding: 26,
+          boxShadow: "var(--shadow-lg)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+          alignItems: "center",
+          textAlign: "center",
+        }}
+      >
+        <span
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 16,
+            background: "var(--sky-50)",
+            color: "var(--sky-600)",
+            display: "grid",
+            placeItems: "center",
+          }}
+        >
+          <Icon name="info" size={26} />
+        </span>
+        <h3 style={{ fontSize: 19 }}>Ubah status pesanan?</h3>
+        <div
+          className="num"
+          style={{ fontWeight: 800, color: "var(--ink)", fontSize: 14 }}
+        >
+          {order.code}
+        </div>
+        <div
+          className="row gap-10"
+          style={{
+            background: "var(--bg)",
+            padding: "10px 16px",
+            borderRadius: 999,
+            fontSize: 13.5,
+            fontWeight: 700,
+          }}
+        >
+          <span className="badge badge-amber">
+            <span className="dot" />
+            {fromLabel}
+          </span>
+          <Icon name="arrowR" size={16} style={{ color: "var(--muted)" }} />
+          <span className="badge badge-green">
+            <span className="dot" />
+            {toLabel}
+          </span>
+        </div>
+        <p
+          className="mut"
+          style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55 }}
+        >
+          Pelanggan akan melihat status baru di halaman Lacak Pesanan. Lanjutkan?
+        </p>
+        <div className="row gap-10" style={{ width: "100%", marginTop: 6 }}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-block"
+            onClick={onCancel}
+            disabled={busy}
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn-block"
+            onClick={onConfirm}
+            disabled={busy}
+          >
+            {busy ? (
+              <>
+                <span className="ki-spin" /> Memproses…
+              </>
+            ) : (
+              "Ya, Ubah"
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

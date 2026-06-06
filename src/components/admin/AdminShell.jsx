@@ -146,10 +146,14 @@ export default function AdminShell({ children, lastRun = "Belum dijalankan" }) {
               borderRadius: 12,
               fontWeight: 700,
               fontSize: 14,
-              color: "var(--body)",
+              color: "#fff",
+              background: "#b03d4d",
               justifyContent: "flex-start",
               marginTop: 6,
+              boxShadow: "0 4px 12px -4px rgba(176, 61, 77, .5)",
             }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#922f3e")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#b03d4d")}
           >
             <Icon name="logout" size={18} /> Keluar
           </button>
@@ -185,33 +189,6 @@ export default function AdminShell({ children, lastRun = "Belum dijalankan" }) {
             <Icon name="search" size={17} />
             <span style={{ fontSize: 13, fontWeight: 600 }}>Cari…</span>
           </div>
-          <button
-            type="button"
-            className="row"
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 999,
-              background: "var(--bg)",
-              color: "var(--navy)",
-              justifyContent: "center",
-              position: "relative",
-            }}
-          >
-            <Icon name="bell" size={19} />
-            <span
-              style={{
-                position: "absolute",
-                top: 9,
-                right: 10,
-                width: 8,
-                height: 8,
-                borderRadius: 999,
-                background: "var(--red)",
-                boxShadow: "0 0 0 2px var(--bg)",
-              }}
-            />
-          </button>
           <div className="row gap-10" style={{ paddingLeft: 6 }}>
             <span
               style={{

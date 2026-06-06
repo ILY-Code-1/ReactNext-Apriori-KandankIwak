@@ -54,6 +54,8 @@ export async function addOrderAndTransaction(orderCode, orderData, transactionDa
     total: orderData.total,
     customer_name: orderData.customer_name,
     contact: orderData.contact,
+    address: orderData.address ?? null,
+    payment_method: orderData.payment_method ?? null,
     status: orderData.status ?? ORDER_STATUS.ORDERED,
     notes: orderData.notes ?? "",
     created_at: serverTimestamp(),

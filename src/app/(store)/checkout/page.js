@@ -4,29 +4,52 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "@/components/ui/Icon";
-import { WhatsappIcon } from "@/components/ui/BrandIcons";
 import Illo from "@/components/ui/Illo";
+import RequiredLabel from "@/components/ui/RequiredLabel";
 import { useCart } from "@/context/CartContext";
 import { getAllProducts } from "@/lib/firebase/products";
 import { getAllPaymentMethods } from "@/lib/firebase/payment-methods";
 import { addOrderAndTransaction } from "@/lib/firebase/orders";
 import { generateOrderCode } from "@/lib/utils/order-code";
-import { buildOrderMessage, buildWhatsAppUrl } from "@/lib/whatsapp/build-message";
+import {
+  KAB_TANGERANG_NAME,
+  getDistricts,
+  getVillages,
+} from "@/lib/wilayah/api";
 import { rupiah } from "@/lib/utils/format";
 
 const SHIPPING_FLAT = 12000;
 
+const EMPTY_FORM = {
+  name: "",
+  contact: "",
+  kecamatan_code: "",
+  kelurahan_code: "",
+  address_detail: "",
+  notes: "",
+  payment_method_id: "",
+};
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, hydrated, clear } = useCart();
+
   const [productMap, setProductMap] = useState({});
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
-  const [form, setForm] = useState({ name: "", contact: "", notes: "" });
+  const [districts, setDistricts] = useState([]);
+  const [villages, setVillages] = useState([]);
+  const [loadingDistricts, setLoadingDistricts] = useState(true);
+  const [loadingVillages, setLoadingVillages] = useState(false);
+  const [wilayahError, setWilayahError] = useState(null);
+
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   useEffect(() => {
     Promise.all([getAllProducts({ onlyActive: true }), getAllPaymentMethods()])
@@ -37,32 +60,92 @@ export default function CheckoutPage() {
       .finally(() => setLoadingProducts(false));
   }, []);
 
-  const cartItems = useMemo(() => {
-    return Object.entries(items)
-      .map(([id, qty]) => ({ product: productMap[id], qty }))
-      .filter((x) => x.product);
-  }, [items, productMap]);
+  useEffect(() => {
+    setLoadingDistricts(true);
+    getDistricts()
+      .then(setDistricts)
+      .catch(() => setWilayahError("Gagal memuat data wilayah."))
+      .finally(() => setLoadingDistricts(false));
+  }, []);
+
+  useEffect(() => {
+    if (!form.kecamatan_code) {
+      setVillages([]);
+      return;
+    }
+    setLoadingVillages(true);
+    setVillages([]);
+    getVillages(form.kecamatan_code)
+      .then(setVillages)
+      .catch(() => setWilayahError("Gagal memuat kelurahan."))
+      .finally(() => setLoadingVillages(false));
+  }, [form.kecamatan_code]);
+
+  const cartItems = useMemo(
+    () =>
+      Object.entries(items)
+        .map(([id, qty]) => ({ product: productMap[id], qty }))
+        .filter((x) => x.product),
+    [items, productMap],
+  );
 
   const subtotal = cartItems.reduce((s, x) => s + x.product.price * x.qty, 0);
   const shipping = cartItems.length > 0 ? SHIPPING_FLAT : 0;
   const total = subtotal + shipping;
 
   useEffect(() => {
-    if (!hydrated || loadingProducts) return;
-    if (success) return;
+    if (!hydrated || loadingProducts || submitted || submitting) return;
     if (cartItems.length === 0) router.replace("/cart");
-  }, [hydrated, loadingProducts, cartItems.length, success, router]);
+  }, [hydrated, loadingProducts, cartItems.length, submitted, submitting, router]);
 
-  const valid =
-    form.name.trim().length > 0 &&
-    form.contact.trim().length > 0 &&
-    cartItems.length > 0;
+  function validate(values = form) {
+    const e = {};
+    if (!values.name.trim()) e.name = "Nama wajib diisi.";
+    if (!values.contact.trim()) e.contact = "Nomor WhatsApp wajib diisi.";
+    else if (!/^[0-9+\s-]{8,}$/.test(values.contact.trim()))
+      e.contact = "Format nomor tidak valid.";
+    if (!values.kecamatan_code) e.kecamatan_code = "Pilih kecamatan.";
+    if (!values.kelurahan_code) e.kelurahan_code = "Pilih kelurahan.";
+    if (!values.address_detail.trim())
+      e.address_detail = "Detail alamat wajib diisi.";
+    if (!values.payment_method_id) e.payment_method_id = "Pilih metode pembayaran.";
+    return e;
+  }
+
+  function setField(key, value) {
+    setForm((f) => {
+      const next = { ...f, [key]: value };
+      if (key === "kecamatan_code") next.kelurahan_code = "";
+      const allErrors = validate(next);
+      setErrors((prev) => ({ ...prev, [key]: allErrors[key], ...(key === "kecamatan_code" ? { kelurahan_code: undefined } : {}) }));
+      return next;
+    });
+  }
+
+  function markTouched(key) {
+    setTouched((t) => ({ ...t, [key]: true }));
+    setErrors(validate());
+  }
+
+  const allErrors = useMemo(() => validate(), [form]);
+  const isValid = Object.keys(allErrors).length === 0 && cartItems.length > 0;
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!valid || submitting) return;
+    const all = validate();
+    setErrors(all);
+    setTouched({
+      name: true,
+      contact: true,
+      kecamatan_code: true,
+      kelurahan_code: true,
+      address_detail: true,
+      payment_method_id: true,
+    });
+    if (Object.keys(all).length > 0 || cartItems.length === 0) return;
+
     setSubmitting(true);
-    setError(null);
+    setSubmitError(null);
 
     try {
       const orderCode = await generateOrderCode();
@@ -77,6 +160,27 @@ export default function CheckoutPage() {
         new Set(orderItems.map((it) => it.product_id)),
       );
 
+      const selectedPayment = paymentMethods.find((m) => m.id === form.payment_method_id);
+      const kecamatan = districts.find((d) => d.code === form.kecamatan_code);
+      const kelurahan = villages.find((v) => v.code === form.kelurahan_code);
+
+      const address = {
+        kecamatan_code: form.kecamatan_code,
+        kecamatan_name: kecamatan?.name || "",
+        kelurahan_code: form.kelurahan_code,
+        kelurahan_name: kelurahan?.name || "",
+        detail: form.address_detail.trim(),
+      };
+
+      const paymentSnapshot = selectedPayment
+        ? {
+            id: selectedPayment.id,
+            payment_method: selectedPayment.payment_method,
+            account_name: selectedPayment.account_name,
+            account_number: selectedPayment.account_number,
+          }
+        : null;
+
       await addOrderAndTransaction(
         orderCode,
         {
@@ -84,29 +188,22 @@ export default function CheckoutPage() {
           total,
           customer_name: form.name.trim(),
           contact: form.contact.trim(),
+          address,
+          payment_method: paymentSnapshot,
           notes: form.notes.trim(),
         },
         { items: transactionItems },
       );
 
-      const message = buildOrderMessage({
-        orderCode,
-        customerName: form.name.trim(),
-        contact: form.contact.trim(),
-        items: orderItems,
-        total,
-        notes: form.notes.trim(),
-      });
-      const waUrl = buildWhatsAppUrl(message);
-
+      setSubmitted(true);
       clear();
-      setSuccess({ code: orderCode, total, waUrl });
-
-      window.open(waUrl, "_blank", "noopener,noreferrer");
+      router.push(`/checkout/success?code=${encodeURIComponent(orderCode)}`);
     } catch (err) {
       console.error(err);
-      setError("Gagal membuat pesanan. Periksa koneksi dan coba lagi.");
-    } finally {
+      setSubmitError(
+        err?.message ||
+          "Gagal membuat pesanan. Periksa koneksi dan coba lagi.",
+      );
       setSubmitting(false);
     }
   }
@@ -125,12 +222,10 @@ export default function CheckoutPage() {
     );
   }
 
-  if (success) {
-    return <SuccessCard success={success} paymentMethods={paymentMethods} />;
-  }
+  const showError = (key) => (touched[key] || submitError) && errors[key];
 
   return (
-    <div className="wrap" style={{ padding: "32px 28px 0" }}>
+    <div className="wrap" style={{ padding: "32px 28px 60px" }}>
       <Link
         href="/cart"
         className="row gap-6"
@@ -146,97 +241,226 @@ export default function CheckoutPage() {
         style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 26, alignItems: "start" }}
       >
         <div className="col gap-18">
-          <div className="card" style={{ padding: 24 }}>
-            <div className="row gap-10" style={{ marginBottom: 18 }}>
-              <span
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 10,
-                  background: "var(--sky-50)",
-                  color: "var(--sky-600)",
-                  display: "grid",
-                  placeItems: "center",
-                }}
+          {/* Data Pemesan */}
+          <Section icon="user" title="Data Pemesan">
+            <FieldGrid>
+              <Field
+                label="Nama Lengkap"
+                required
+                error={showError("name") ? errors.name : null}
               >
-                <Icon name="user" size={19} />
-              </span>
-              <h3 style={{ fontSize: 18 }}>Data Pemesan</h3>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <div className="field">
-                <label>Nama Lengkap</label>
                 <input
                   className="input"
                   placeholder="cth. Budi Santoso"
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  required
+                  onChange={(e) => setField("name", e.target.value)}
+                  onBlur={() => markTouched("name")}
                   disabled={submitting}
+                  required
                 />
-              </div>
-              <div className="field">
-                <label>No. WhatsApp</label>
+              </Field>
+
+              <Field
+                label="No. WhatsApp"
+                required
+                error={showError("contact") ? errors.contact : null}
+              >
                 <input
                   className="input"
                   placeholder="08xx xxxx xxxx"
                   value={form.contact}
-                  onChange={(e) => setForm({ ...form, contact: e.target.value })}
-                  required
+                  onChange={(e) => setField("contact", e.target.value)}
+                  onBlur={() => markTouched("contact")}
                   disabled={submitting}
+                  required
                 />
-              </div>
-              <div className="field" style={{ gridColumn: "1/3" }}>
-                <label>Catatan (opsional)</label>
+              </Field>
+            </FieldGrid>
+          </Section>
+
+          {/* Alamat */}
+          <Section icon="map" title="Alamat Pengiriman">
+            <p
+              className="mut"
+              style={{ margin: 0, marginTop: -6, marginBottom: 14, fontSize: 13 }}
+            >
+              Hanya melayani area <b style={{ color: "var(--navy)" }}>{KAB_TANGERANG_NAME}</b>.
+            </p>
+
+            {wilayahError && (
+              <ErrorBanner>
+                {wilayahError}{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWilayahError(null);
+                    setLoadingDistricts(true);
+                    getDistricts()
+                      .then(setDistricts)
+                      .catch(() => setWilayahError("Masih gagal memuat data wilayah."))
+                      .finally(() => setLoadingDistricts(false));
+                  }}
+                  style={{
+                    color: "var(--red)",
+                    textDecoration: "underline",
+                    fontWeight: 700,
+                  }}
+                >
+                  Coba lagi
+                </button>
+              </ErrorBanner>
+            )}
+
+            <FieldGrid>
+              <Field
+                label="Kecamatan"
+                required
+                error={showError("kecamatan_code") ? errors.kecamatan_code : null}
+              >
+                <select
+                  className="select"
+                  value={form.kecamatan_code}
+                  onChange={(e) => setField("kecamatan_code", e.target.value)}
+                  onBlur={() => markTouched("kecamatan_code")}
+                  disabled={submitting || loadingDistricts}
+                  required
+                >
+                  <option value="">
+                    {loadingDistricts ? "Memuat…" : "Pilih kecamatan"}
+                  </option>
+                  {districts.map((d) => (
+                    <option key={d.code} value={d.code}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field
+                label="Kelurahan"
+                required
+                error={showError("kelurahan_code") ? errors.kelurahan_code : null}
+              >
+                <select
+                  className="select"
+                  value={form.kelurahan_code}
+                  onChange={(e) => setField("kelurahan_code", e.target.value)}
+                  onBlur={() => markTouched("kelurahan_code")}
+                  disabled={submitting || !form.kecamatan_code || loadingVillages}
+                  required
+                >
+                  <option value="">
+                    {!form.kecamatan_code
+                      ? "Pilih kecamatan dulu"
+                      : loadingVillages
+                      ? "Memuat…"
+                      : "Pilih kelurahan"}
+                  </option>
+                  {villages.map((v) => (
+                    <option key={v.code} value={v.code}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field
+                label="Detail Alamat"
+                required
+                error={showError("address_detail") ? errors.address_detail : null}
+                style={{ gridColumn: "1/3" }}
+              >
                 <textarea
                   className="input"
                   rows="3"
                   style={{ resize: "vertical" }}
-                  placeholder="cth. Alamat pengiriman, jam antar, atau permintaan khusus"
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  placeholder="Nama jalan, nomor rumah, RT/RW, patokan…"
+                  value={form.address_detail}
+                  onChange={(e) => setField("address_detail", e.target.value)}
+                  onBlur={() => markTouched("address_detail")}
                   disabled={submitting}
+                  required
                 />
-              </div>
-            </div>
-          </div>
+              </Field>
+            </FieldGrid>
+          </Section>
 
-          <div
-            className="card"
-            style={{
-              padding: 22,
-              display: "flex",
-              gap: 14,
-              alignItems: "flex-start",
-              background: "linear-gradient(100deg, var(--green-50), #fff)",
-              border: "1px solid #c6ecdb",
-            }}
-          >
-            <span
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: 12,
-                background: "var(--green)",
-                color: "#fff",
-                display: "grid",
-                placeItems: "center",
-                flex: "0 0 auto",
-              }}
-            >
-              <WhatsappIcon size={22} />
-            </span>
-            <div className="col" style={{ gap: 4 }}>
-              <h3 style={{ fontSize: 16 }}>Konfirmasi via WhatsApp</h3>
-              <p style={{ margin: 0, fontSize: 13.5, color: "var(--body)", lineHeight: 1.55 }}>
-                Setelah klik tombol di bawah, sistem mencatat pesanan dan membuka
-                WhatsApp admin dengan rincian. Bukti transfer & alamat pengiriman
-                final dikoordinasikan di chat.
-              </p>
-            </div>
-          </div>
+          {/* Metode Pembayaran */}
+          <Section icon="card" title="Metode Pembayaran">
+            {paymentMethods.length === 0 ? (
+              <div
+                className="row gap-8"
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  background: "var(--amber-50)",
+                  color: "#b9810a",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                <Icon name="info" size={16} />
+                Admin belum menambah metode pembayaran. Hubungi via WhatsApp.
+              </div>
+            ) : (
+              <>
+                <span
+                  style={{
+                    display: "block",
+                    marginBottom: 10,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "var(--ink)",
+                  }}
+                >
+                  <RequiredLabel>Pilih satu metode</RequiredLabel>
+                </span>
+                <div className="col gap-10">
+                  {paymentMethods.map((m) => (
+                    <PaymentRadio
+                      key={m.id}
+                      method={m}
+                      checked={form.payment_method_id === m.id}
+                      onSelect={() => {
+                        setField("payment_method_id", m.id);
+                        markTouched("payment_method_id");
+                      }}
+                      disabled={submitting}
+                    />
+                  ))}
+                </div>
+                {showError("payment_method_id") && (
+                  <span
+                    style={{
+                      display: "block",
+                      marginTop: 8,
+                      fontSize: 12.5,
+                      color: "var(--red)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {errors.payment_method_id}
+                  </span>
+                )}
+              </>
+            )}
+          </Section>
+
+          {/* Catatan */}
+          <Section icon="edit" title="Catatan (opsional)">
+            <textarea
+              className="input"
+              rows="2"
+              style={{ resize: "vertical" }}
+              placeholder="cth. Titip ke pos satpam, antar setelah jam 4 sore"
+              value={form.notes}
+              onChange={(e) => setField("notes", e.target.value)}
+              disabled={submitting}
+            />
+          </Section>
         </div>
 
+        {/* Ringkasan */}
         <aside
           className="card"
           style={{
@@ -329,41 +553,25 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {error && (
-            <div
-              className="row gap-8"
-              style={{
-                background: "var(--red-50)",
-                color: "var(--red)",
-                padding: "10px 12px",
-                borderRadius: 12,
-                fontSize: 13,
-                fontWeight: 600,
-              }}
-            >
-              <Icon name="info" size={16} /> {error}
-            </div>
-          )}
+          {submitError && <ErrorBanner>{submitError}</ErrorBanner>}
 
           <button
             type="submit"
-            className="btn btn-success btn-lg btn-block"
-            disabled={!valid || submitting}
+            className="btn btn-primary btn-lg btn-block"
+            disabled={!isValid || submitting}
           >
             {submitting ? (
               <>
                 <span className="ki-spin" /> Memproses…
               </>
-            ) : valid ? (
-              <>
-                <WhatsappIcon size={18} /> Pesan via WhatsApp
-              </>
             ) : (
-              "Lengkapi data dulu"
+              <>
+                Lanjutkan Pembayaran <Icon name="arrowR" size={18} />
+              </>
             )}
           </button>
           <span style={{ fontSize: 11.5, color: "var(--muted)", textAlign: "center" }}>
-            Dengan memesan, Anda menyetujui ketentuan Kandank Iwak.
+            Detail rekening dan tombol konfirmasi WhatsApp muncul setelah pesanan dibuat.
           </span>
         </aside>
       </form>
@@ -371,195 +579,95 @@ export default function CheckoutPage() {
   );
 }
 
-function SuccessCard({ success, paymentMethods = [] }) {
+function Section({ icon, title, children }) {
   return (
-    <div className="wrap" style={{ padding: "40px 28px 60px", display: "grid", placeItems: "center" }}>
-      <div
-        className="card kiup"
-        style={{
-          padding: 32,
-          maxWidth: 560,
-          width: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "stretch",
-          gap: 18,
-        }}
-      >
-        <div className="col" style={{ alignItems: "center", gap: 10, textAlign: "center" }}>
-          <span
-            style={{
-              width: 76,
-              height: 76,
-              borderRadius: 999,
-              background: "var(--green-50)",
-              color: "var(--green)",
-              display: "grid",
-              placeItems: "center",
-            }}
-          >
-            <Icon name="check" size={42} stroke={2.5} />
-          </span>
-          <h2 style={{ fontSize: 26 }}>Pesanan Dibuat!</h2>
-          <p className="mut" style={{ margin: 0 }}>
-            Lakukan pembayaran ke salah satu rekening di bawah, lalu kirim bukti
-            transfer via WhatsApp.
-          </p>
-        </div>
-
-        <CopyRow label="Kode Pesanan" value={success.code} mono />
-        <CopyRow
-          label="Total yang harus dibayar"
-          value={rupiah(success.total)}
-          copyText={String(Math.round(success.total))}
-          accent
-        />
-
-        <div className="col gap-10">
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: ".04em",
-              color: "var(--muted)",
-            }}
-          >
-            Metode Pembayaran
-          </span>
-          {paymentMethods.length === 0 ? (
-            <div
-              className="row gap-8"
-              style={{
-                padding: "12px 14px",
-                borderRadius: 12,
-                background: "var(--amber-50)",
-                color: "#b9810a",
-                fontSize: 13,
-                fontWeight: 600,
-              }}
-            >
-              <Icon name="info" size={16} />
-              Admin belum menambah metode pembayaran. Tanya lewat WhatsApp.
-            </div>
-          ) : (
-            paymentMethods.map((m) => <PaymentMethodRow key={m.id} method={m} />)
-          )}
-        </div>
-
-        <a
-          href={success.waUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn btn-success btn-lg btn-block"
+    <div className="card" style={{ padding: 24 }}>
+      <div className="row gap-10" style={{ marginBottom: 16 }}>
+        <span
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            background: "var(--sky-50)",
+            color: "var(--sky-600)",
+            display: "grid",
+            placeItems: "center",
+          }}
         >
-          <WhatsappIcon size={20} /> Buka WhatsApp
-        </a>
-        <Link href={`/track?code=${success.code}`} className="btn btn-outline btn-block">
-          Lacak Pesanan
-        </Link>
-        <Link href="/products" className="btn btn-ghost btn-block">
-          Belanja Lagi
-        </Link>
+          <Icon name={icon} size={19} />
+        </span>
+        <h3 style={{ fontSize: 17 }}>{title}</h3>
       </div>
+      {children}
     </div>
   );
 }
 
-function CopyRow({ label, value, copyText, mono, accent }) {
-  const [copied, setCopied] = useState(false);
-  const handle = async () => {
-    try {
-      await navigator.clipboard.writeText(copyText ?? value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {}
-  };
+function FieldGrid({ children }) {
   return (
-    <button
-      type="button"
-      onClick={handle}
-      className="card card-line"
-      style={{
-        padding: 14,
-        boxShadow: "none",
-        cursor: "pointer",
-        border: `2px dashed ${accent ? "var(--sky)" : "var(--line)"}`,
-        background: accent ? "var(--sky-50)" : "#fff",
-        textAlign: "left",
-        width: "100%",
-      }}
-    >
-      <div className="row gap-10">
-        <div className="col" style={{ gap: 2, flex: 1, minWidth: 0 }}>
-          <span
-            style={{
-              fontSize: 11.5,
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: ".04em",
-              color: "var(--muted)",
-            }}
-          >
-            {label}
-          </span>
-          <span
-            className={mono ? "num" : ""}
-            style={{
-              fontSize: accent ? 22 : 18,
-              fontWeight: 800,
-              color: accent ? "var(--navy)" : "var(--ink)",
-              wordBreak: "break-all",
-            }}
-          >
-            {value}
-          </span>
-        </div>
-        <span
-          className="row gap-6"
-          style={{
-            fontSize: 12.5,
-            fontWeight: 700,
-            color: copied ? "var(--green)" : "var(--sky-600)",
-            flex: "0 0 auto",
-          }}
-        >
-          <Icon name={copied ? "check" : "copy"} size={15} stroke={2.5} />
-          {copied ? "Tersalin" : "Salin"}
-        </span>
-      </div>
-    </button>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+      {children}
+    </div>
   );
 }
 
-function PaymentMethodRow({ method }) {
-  const [copied, setCopied] = useState(false);
-  const [imgError, setImgError] = useState(false);
-  const label = (method.payment_method || "").toUpperCase();
+function Field({ label, required, error, children, style }) {
+  return (
+    <div className="field" style={style}>
+      <label>{required ? <RequiredLabel>{label}</RequiredLabel> : label}</label>
+      {children}
+      {error && (
+        <span style={{ fontSize: 12.5, color: "var(--red)", fontWeight: 600 }}>
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
 
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(method.account_number || "");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {}
-  };
-
+function ErrorBanner({ children }) {
   return (
     <div
+      className="row gap-8"
+      style={{
+        background: "var(--red-50)",
+        color: "var(--red)",
+        padding: "10px 12px",
+        borderRadius: 12,
+        fontSize: 13,
+        fontWeight: 600,
+      }}
+    >
+      <Icon name="info" size={16} /> {children}
+    </div>
+  );
+}
+
+function PaymentRadio({ method, checked, onSelect, disabled }) {
+  const [imgError, setImgError] = useState(false);
+  const label = (method.payment_method || "").toUpperCase();
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      disabled={disabled}
       className="row gap-12"
       style={{
-        padding: 12,
-        borderRadius: 12,
-        background: "var(--bg)",
-        alignItems: "center",
+        padding: 14,
+        borderRadius: 14,
+        textAlign: "left",
+        background: checked ? "var(--sky-50)" : "#fff",
+        boxShadow: checked
+          ? "inset 0 0 0 2px var(--sky)"
+          : "inset 0 0 0 1.5px var(--line)",
+        transition: "background .15s, box-shadow .15s",
       }}
     >
       <span
         style={{
-          width: 56,
-          height: 56,
-          borderRadius: 12,
+          width: 48,
+          height: 48,
+          borderRadius: 11,
           background: "#fff",
           display: "grid",
           placeItems: "center",
@@ -569,7 +677,7 @@ function PaymentMethodRow({ method }) {
         }}
       >
         {imgError ? (
-          <Icon name="card" size={26} style={{ color: "var(--muted)" }} />
+          <Icon name="card" size={22} style={{ color: "var(--muted)" }} />
         ) : (
           <img
             src={`/payment-icon/${method.payment_method}.webp`}
@@ -580,38 +688,35 @@ function PaymentMethodRow({ method }) {
         )}
       </span>
       <div className="col" style={{ gap: 2, flex: 1, minWidth: 0 }}>
-        <div className="row gap-8">
-          <span style={{ fontWeight: 800, color: "var(--ink)", fontSize: 14.5 }}>
-            {label}
-          </span>
-          <span className="mut" style={{ fontSize: 12.5 }}>
-            a.n. {method.account_name}
-          </span>
-        </div>
-        <span
-          className="num"
-          style={{ fontSize: 17, fontWeight: 800, color: "var(--navy)", wordBreak: "break-all" }}
-        >
-          {method.account_number}
+        <span style={{ fontWeight: 800, color: "var(--ink)", fontSize: 14.5 }}>
+          {label}
+        </span>
+        <span style={{ fontSize: 12.5, color: "var(--muted)", fontWeight: 600 }}>
+          a.n. {method.account_name} · {method.account_number}
         </span>
       </div>
-      <button
-        type="button"
-        onClick={copy}
-        className="row gap-6"
+      <span
         style={{
-          padding: "8px 12px",
+          width: 22,
+          height: 22,
           borderRadius: 999,
-          fontSize: 12.5,
-          fontWeight: 700,
-          color: copied ? "#fff" : "var(--sky-600)",
-          background: copied ? "var(--green)" : "var(--sky-50)",
+          border: `2px solid ${checked ? "var(--sky)" : "var(--line)"}`,
+          display: "grid",
+          placeItems: "center",
           flex: "0 0 auto",
         }}
       >
-        <Icon name={copied ? "check" : "copy"} size={14} stroke={2.5} />
-        {copied ? "Tersalin" : "Salin"}
-      </button>
-    </div>
+        {checked && (
+          <span
+            style={{
+              width: 11,
+              height: 11,
+              borderRadius: 999,
+              background: "var(--sky)",
+            }}
+          />
+        )}
+      </span>
+    </button>
   );
 }

@@ -1,12 +1,18 @@
-import {
-  collection,
-  documentId,
-  getCountFromServer,
-  query,
-  where,
-} from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { COL } from "@/lib/firebase/collections";
+
+// Alfabet "Crockford-like" — exclude karakter mirip (0/O, 1/I/L, dst.)
+// supaya pelanggan tidak salah baca/ketik saat lacak pesanan.
+const SAFE_CHARS = "ACDEFGHJKLMNPQRTUVWXY2345679";
+
+function randomSuffix(length = 4) {
+  let s = "";
+  for (let i = 0; i < length; i++) {
+    s += SAFE_CHARS[Math.floor(Math.random() * SAFE_CHARS.length)];
+  }
+  return s;
+}
 
 function todayPrefix() {
   const now = new Date();
@@ -18,12 +24,12 @@ function todayPrefix() {
 
 export async function generateOrderCode() {
   const prefix = todayPrefix();
-  const q = query(
-    collection(db, COL.ORDERS),
-    where(documentId(), ">=", prefix),
-    where(documentId(), "<", `${prefix}`),
-  );
-  const snap = await getCountFromServer(q);
-  const seq = snap.data().count + 1;
-  return `${prefix}${String(seq).padStart(3, "0")}`;
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = `${prefix}${randomSuffix()}`;
+    const snap = await getDoc(doc(db, COL.ORDERS, code));
+    if (!snap.exists()) return code;
+  }
+
+  throw new Error("Gagal generate kode pesanan unik. Coba lagi.");
 }

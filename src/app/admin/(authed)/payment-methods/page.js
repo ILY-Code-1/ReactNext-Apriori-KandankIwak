@@ -76,9 +76,7 @@ export default function PaymentMethodsPage() {
     const name = draft.account_name.trim();
     const num = draft.account_number.trim();
 
-    if (!pm) return setFormError("Kode metode wajib diisi (mis. bca, dana).");
-    if (!/^[a-z0-9-]+$/.test(pm))
-      return setFormError("Kode metode hanya boleh huruf kecil, angka, atau tanda strip.");
+    if (!pm) return setFormError("Pilih metode pembayaran.");
     if (!name) return setFormError("Atas nama wajib diisi.");
     if (!num) return setFormError("Nomor rekening / e-wallet wajib diisi.");
 
@@ -331,20 +329,17 @@ export default function PaymentMethodsPage() {
             <div className="col gap-14">
               <div className="field">
                 <label>Kode Metode</label>
-                <input
-                  className="input num"
+                <select
+                  className="select"
                   value={draft.payment_method}
                   onChange={(e) => setDraft({ ...draft, payment_method: e.target.value })}
-                  placeholder="bca"
-                  autoCapitalize="off"
-                  autoComplete="off"
                   disabled={saving}
-                />
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                  Huruf kecil, tanpa spasi. Harus sama dengan nama file logo di{" "}
-                  <code>/public/payment-icon/{"{kode}"}.webp</code>.
-                </span>
-                {draft.payment_method.trim() && (
+                >
+                  <option value="">Pilih metode</option>
+                  <option value="bca">BCA</option>
+                  <option value="dana">DANA</option>
+                </select>
+                {draft.payment_method && (
                   <div
                     className="row gap-10"
                     style={{
@@ -354,9 +349,9 @@ export default function PaymentMethodsPage() {
                       background: "var(--bg)",
                     }}
                   >
-                    <PaymentLogo method={draft.payment_method.trim().toLowerCase()} />
+                    <PaymentLogo method={draft.payment_method} />
                     <span className="mut" style={{ fontSize: 12.5, fontWeight: 600 }}>
-                      Preview logo (kalau file tidak ada, ikon default ditampilkan)
+                      Preview logo
                     </span>
                   </div>
                 )}
