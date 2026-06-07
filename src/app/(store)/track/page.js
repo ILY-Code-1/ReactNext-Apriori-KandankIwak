@@ -91,6 +91,7 @@ function TrackPage() {
   };
 
   const currentStep = order ? ORDER_STATUS_FLOW.indexOf(order.status) : -1;
+  const isCancelled = order?.status === "cancelled";
 
   return (
     <div className="wrap" style={{ padding: "32px 28px 60px" }}>
@@ -225,9 +226,35 @@ function TrackPage() {
                 <span className="chip">{formatDateTime(order.created_at)}</span>
               </div>
 
+              {isCancelled && (
+                <div
+                  className="row gap-12"
+                  style={{
+                    background: "var(--red-50)",
+                    color: "var(--red)",
+                    padding: "14px 16px",
+                    borderRadius: 12,
+                    marginBottom: 16,
+                    fontWeight: 600,
+                    fontSize: 13.5,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <Icon name="x" size={18} stroke={2.5} />
+                  <span>
+                    Pesanan ini <b>dibatalkan</b>. Jika kamu merasa ada kesalahan,
+                    silakan hubungi admin via WhatsApp.
+                  </span>
+                </div>
+              )}
+
               <div
                 className="col gap-14"
-                style={{ borderTop: "1px solid var(--line-soft)", paddingTop: 18 }}
+                style={{
+                  borderTop: "1px solid var(--line-soft)",
+                  paddingTop: 18,
+                  opacity: isCancelled ? 0.45 : 1,
+                }}
               >
                 {ORDER_STATUS_FLOW.map((s, i) => {
                   const reached = i <= currentStep;

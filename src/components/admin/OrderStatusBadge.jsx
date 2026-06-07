@@ -3,6 +3,7 @@ const MAP = {
   paid: ["badge-sky", "Dibayar"],
   shipped: ["badge-navy", "Dikirim"],
   completed: ["badge-green", "Selesai"],
+  cancelled: ["badge-red", "Dibatalkan"],
 };
 
 export default function OrderStatusBadge({ status }) {

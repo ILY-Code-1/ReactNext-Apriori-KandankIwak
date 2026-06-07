@@ -2,10 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Icon from "@/components/ui/Icon";
+import { WhatsappIcon } from "@/components/ui/BrandIcons";
 import OrderStatusBadge from "@/components/admin/OrderStatusBadge";
 import { getAllOrders, updateOrderStatus } from "@/lib/firebase/orders";
 import { ORDER_STATUS, ORDER_STATUS_FLOW } from "@/lib/firebase/collections";
 import { rupiah, formatDateTime } from "@/lib/utils/format";
+
+function formatContactDisplay(contact) {
+  if (!contact) return "—";
+  const digits = String(contact).replace(/\D/g, "");
+  return digits ? `+${digits}` : contact;
+}
+
+function buildWhatsAppLink(contact) {
+  if (!contact) return null;
+  const digits = String(contact).replace(/\D/g, "");
+  return digits ? `https://wa.me/${digits}` : null;
+}
 
 const FILTERS = [
   { id: "all", label: "Semua" },
@@ -13,6 +26,7 @@ const FILTERS = [
   { id: ORDER_STATUS.PAID, label: "Dibayar" },
   { id: ORDER_STATUS.SHIPPED, label: "Dikirim" },
   { id: ORDER_STATUS.COMPLETED, label: "Selesai" },
+  { id: ORDER_STATUS.CANCELLED, label: "Dibatalkan" },
 ];
 
 const NEXT_LABELS = {
@@ -20,6 +34,8 @@ const NEXT_LABELS = {
   [ORDER_STATUS.PAID]: "Tandai Dikirim",
   [ORDER_STATUS.SHIPPED]: "Tandai Selesai",
 };
+
+const FINAL_STATUSES = new Set([ORDER_STATUS.COMPLETED, ORDER_STATUS.CANCELLED]);
 
 export default function ManageOrdersPage() {
   const [orders, setOrders] = useState([]);
@@ -57,10 +73,15 @@ export default function ManageOrdersPage() {
     const idx = ORDER_STATUS_FLOW.indexOf(order.status);
     if (idx < 0 || idx >= ORDER_STATUS_FLOW.length - 1) return;
     const next = ORDER_STATUS_FLOW[idx + 1];
-    setPendingChange({ order, next });
+    setPendingChange({ order, next, kind: "advance" });
   }
 
-  async function applyAdvance() {
+  function requestCancel(order) {
+    if (FINAL_STATUSES.has(order.status)) return;
+    setPendingChange({ order, next: ORDER_STATUS.CANCELLED, kind: "cancel" });
+  }
+
+  async function applyChange() {
     if (!pendingChange) return;
     const { order, next } = pendingChange;
     setBusyCode(order.code);
@@ -88,6 +109,7 @@ export default function ManageOrdersPage() {
       [ORDER_STATUS.PAID]: orders.filter((o) => o.status === ORDER_STATUS.PAID).length,
       [ORDER_STATUS.SHIPPED]: orders.filter((o) => o.status === ORDER_STATUS.SHIPPED).length,
       [ORDER_STATUS.COMPLETED]: orders.filter((o) => o.status === ORDER_STATUS.COMPLETED).length,
+      [ORDER_STATUS.CANCELLED]: orders.filter((o) => o.status === ORDER_STATUS.CANCELLED).length,
     }),
     [orders],
   );
@@ -188,98 +210,137 @@ export default function ManageOrdersPage() {
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table className="tbl">
+            <table className="tbl" style={{ minWidth: 1100 }}>
               <thead>
                 <tr>
-                  <th>Kode</th>
-                  <th>Pelanggan</th>
+                  <th style={{ whiteSpace: "nowrap" }}>Kode</th>
+                  <th style={{ whiteSpace: "nowrap" }}>Pelanggan</th>
                   <th>Item</th>
-                  <th>Total</th>
-                  <th>Tanggal</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: "right" }}>Aksi</th>
+                  <th style={{ whiteSpace: "nowrap" }}>Total</th>
+                  <th style={{ whiteSpace: "nowrap" }}>Tanggal</th>
+                  <th style={{ whiteSpace: "nowrap" }}>Status</th>
+                  <th style={{ textAlign: "right", whiteSpace: "nowrap" }}>Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {shown.map((o) => (
-                  <tr key={o.code}>
-                    <td>
-                      <span className="num" style={{ fontWeight: 700, color: "var(--ink)" }}>
-                        {o.code}
-                      </span>
-                    </td>
-                    <td style={{ fontWeight: 600, color: "var(--ink)" }}>{o.customer_name}</td>
-                    <td>
-                      <div className="row gap-4" style={{ flexWrap: "wrap" }}>
-                        {(o.items || []).slice(0, 3).map((it, i) => (
-                          <span
-                            key={i}
-                            className="chip chip-ink"
-                            style={{ padding: "3px 9px", fontSize: 11.5 }}
-                          >
-                            {it.name?.split(" ").slice(0, 2).join(" ") || it.product_id}
-                          </span>
-                        ))}
-                        {(o.items || []).length > 3 && (
-                          <span
-                            className="chip chip-ink"
-                            style={{ padding: "3px 9px", fontSize: 11.5 }}
-                          >
-                            +{(o.items || []).length - 3}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="num" style={{ fontWeight: 700, color: "var(--navy)" }}>
-                      {rupiah(o.total)}
-                    </td>
-                    <td className="mut" style={{ fontSize: 13, whiteSpace: "nowrap" }}>
-                      {formatDateTime(o.created_at)}
-                    </td>
-                    <td>
-                      <OrderStatusBadge status={o.status} />
-                    </td>
-                    <td>
-                      <div className="row gap-6" style={{ justifyContent: "flex-end" }}>
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-sm"
-                          onClick={() => setDetail(o)}
-                        >
-                          Detail
-                        </button>
-                        {NEXT_LABELS[o.status] ? (
+                {shown.map((o) => {
+                  const isCancelled = o.status === ORDER_STATUS.CANCELLED;
+                  const isFinal = FINAL_STATUSES.has(o.status);
+                  return (
+                    <tr key={o.code}>
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        <span className="num" style={{ fontWeight: 700, color: "var(--ink)" }}>
+                          {o.code}
+                        </span>
+                      </td>
+                      <td style={{ fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap" }}>
+                        {o.customer_name}
+                      </td>
+                      <td>
+                        <div className="row gap-4" style={{ flexWrap: "nowrap" }}>
+                          {(o.items || []).slice(0, 3).map((it, i) => (
+                            <span
+                              key={i}
+                              className="chip chip-ink"
+                              style={{ padding: "3px 9px", fontSize: 11.5, whiteSpace: "nowrap" }}
+                            >
+                              {it.name?.split(" ").slice(0, 2).join(" ") || it.product_id}
+                            </span>
+                          ))}
+                          {(o.items || []).length > 3 && (
+                            <span
+                              className="chip chip-ink"
+                              style={{ padding: "3px 9px", fontSize: 11.5, whiteSpace: "nowrap" }}
+                            >
+                              +{(o.items || []).length - 3}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td
+                        className="num"
+                        style={{ fontWeight: 700, color: "var(--navy)", whiteSpace: "nowrap" }}
+                      >
+                        {rupiah(o.total)}
+                      </td>
+                      <td className="mut" style={{ fontSize: 13, whiteSpace: "nowrap" }}>
+                        {formatDateTime(o.created_at)}
+                      </td>
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        <OrderStatusBadge status={o.status} />
+                      </td>
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        <div className="row gap-6" style={{ justifyContent: "flex-end" }}>
                           <button
                             type="button"
-                            className="btn btn-ghost btn-sm"
-                            disabled={busyCode === o.code}
-                            onClick={() => requestAdvance(o)}
+                            className="btn btn-outline btn-sm"
+                            onClick={() => setDetail(o)}
                           >
-                            {busyCode === o.code ? (
-                              <span className="ki-spin" />
-                            ) : (
-                              <>
-                                {NEXT_LABELS[o.status]} <Icon name="arrowR" size={14} />
-                              </>
-                            )}
+                            Detail
                           </button>
-                        ) : (
-                          <span
-                            className="row gap-4"
-                            style={{
-                              color: "var(--green)",
-                              fontSize: 13,
-                              fontWeight: 700,
-                              paddingRight: 4,
-                            }}
-                          >
-                            <Icon name="check" size={15} stroke={2.5} /> Selesai
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {NEXT_LABELS[o.status] && (
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              disabled={busyCode === o.code}
+                              onClick={() => requestAdvance(o)}
+                            >
+                              {busyCode === o.code ? (
+                                <span className="ki-spin" />
+                              ) : (
+                                <>
+                                  {NEXT_LABELS[o.status]} <Icon name="arrowR" size={14} />
+                                </>
+                              )}
+                            </button>
+                          )}
+                          {!isFinal && (
+                            <button
+                              type="button"
+                              className="btn btn-sm"
+                              disabled={busyCode === o.code}
+                              onClick={() => requestCancel(o)}
+                              style={{
+                                background: "var(--red-50)",
+                                color: "var(--red)",
+                                fontWeight: 700,
+                              }}
+                              title="Batalkan pesanan"
+                            >
+                              <Icon name="x" size={14} stroke={2.5} /> Batalkan
+                            </button>
+                          )}
+                          {o.status === ORDER_STATUS.COMPLETED && (
+                            <span
+                              className="row gap-4"
+                              style={{
+                                color: "var(--green)",
+                                fontSize: 13,
+                                fontWeight: 700,
+                                paddingRight: 4,
+                              }}
+                            >
+                              <Icon name="check" size={15} stroke={2.5} /> Selesai
+                            </span>
+                          )}
+                          {isCancelled && (
+                            <span
+                              className="row gap-4"
+                              style={{
+                                color: "var(--red)",
+                                fontSize: 13,
+                                fontWeight: 700,
+                                paddingRight: 4,
+                              }}
+                            >
+                              <Icon name="x" size={15} stroke={2.5} /> Dibatalkan
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -337,7 +398,7 @@ export default function ManageOrdersPage() {
                 background: "var(--bg)",
                 borderRadius: 12,
                 padding: 14,
-                marginBottom: 16,
+                marginBottom: 14,
               }}
             >
               <div className="row">
@@ -345,13 +406,6 @@ export default function ManageOrdersPage() {
                 <div className="spacer" />
                 <span style={{ fontWeight: 700, color: "var(--ink)" }}>
                   {detail.customer_name}
-                </span>
-              </div>
-              <div className="row">
-                <span className="mut" style={{ fontSize: 13 }}>Kontak</span>
-                <div className="spacer" />
-                <span className="num" style={{ fontWeight: 700, color: "var(--ink)" }}>
-                  {detail.contact}
                 </span>
               </div>
               <div className="row">
@@ -364,16 +418,78 @@ export default function ManageOrdersPage() {
                 <div className="spacer" />
                 <OrderStatusBadge status={detail.status} />
               </div>
-              {detail.notes && (
-                <div className="row" style={{ alignItems: "flex-start" }}>
-                  <span className="mut" style={{ fontSize: 13 }}>Catatan</span>
-                  <div className="spacer" />
-                  <span style={{ maxWidth: 320, textAlign: "right", color: "var(--ink)" }}>
-                    {detail.notes}
+            </div>
+
+            <DetailSection icon="wa" title="Kontak Pelanggan">
+              <div className="row gap-10" style={{ alignItems: "center" }}>
+                <span
+                  className="num"
+                  style={{ fontWeight: 700, color: "var(--ink)", fontSize: 15 }}
+                >
+                  {formatContactDisplay(detail.contact)}
+                </span>
+                <div className="spacer" />
+                {buildWhatsAppLink(detail.contact) && (
+                  <a
+                    href={buildWhatsAppLink(detail.contact)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-success btn-sm"
+                  >
+                    <WhatsappIcon size={16} /> Hubungi
+                  </a>
+                )}
+              </div>
+            </DetailSection>
+
+            {detail.address && (
+              <DetailSection icon="map" title="Alamat Pengiriman">
+                <div className="col" style={{ gap: 4, color: "var(--ink)", fontSize: 13.5, lineHeight: 1.55 }}>
+                  <span>{detail.address.detail}</span>
+                  <span className="mut" style={{ fontWeight: 600 }}>
+                    Kel. {detail.address.kelurahan_name}, Kec. {detail.address.kecamatan_name}
+                  </span>
+                  <span className="mut" style={{ fontWeight: 600 }}>
+                    Kabupaten Tangerang
                   </span>
                 </div>
-              )}
-            </div>
+              </DetailSection>
+            )}
+
+            {detail.payment_method && (
+              <DetailSection icon="card" title="Metode Pembayaran">
+                <div className="col gap-4">
+                  <span style={{ fontWeight: 800, color: "var(--ink)", fontSize: 15 }}>
+                    {(detail.payment_method.payment_method || "—").toUpperCase()}
+                  </span>
+                  <span
+                    className="num"
+                    style={{ fontWeight: 700, color: "var(--navy)", fontSize: 15 }}
+                  >
+                    {detail.payment_method.account_number}
+                  </span>
+                  <span className="mut" style={{ fontSize: 12.5, fontWeight: 600 }}>
+                    a.n. {detail.payment_method.account_name}
+                  </span>
+                </div>
+              </DetailSection>
+            )}
+
+            {detail.notes && (
+              <DetailSection icon="edit" title="Catatan Pelanggan">
+                <p
+                  style={{
+                    margin: 0,
+                    color: "var(--ink)",
+                    fontSize: 13.5,
+                    lineHeight: 1.55,
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {detail.notes}
+                </p>
+              </DetailSection>
+            )}
 
             <h4 style={{ fontSize: 14, marginBottom: 10 }}>Item</h4>
             <div className="col gap-10" style={{ marginBottom: 16 }}>
@@ -406,28 +522,45 @@ export default function ManageOrdersPage() {
               </span>
             </div>
 
-            <div className="row gap-10">
-              <button
-                type="button"
-                className="btn btn-ghost btn-block"
-                onClick={() => setDetail(null)}
-              >
-                Tutup
-              </button>
-              {NEXT_LABELS[detail.status] && (
+            <div className="col gap-10">
+              <div className="row gap-10">
                 <button
                   type="button"
-                  className="btn btn-primary btn-block"
-                  disabled={busyCode === detail.code}
-                  onClick={() => requestAdvance(detail)}
+                  className="btn btn-ghost btn-block"
+                  onClick={() => setDetail(null)}
                 >
-                  {busyCode === detail.code ? (
-                    <>
-                      <span className="ki-spin" /> Memproses…
-                    </>
-                  ) : (
-                    NEXT_LABELS[detail.status]
-                  )}
+                  Tutup
+                </button>
+                {NEXT_LABELS[detail.status] && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-block"
+                    disabled={busyCode === detail.code}
+                    onClick={() => requestAdvance(detail)}
+                  >
+                    {busyCode === detail.code ? (
+                      <>
+                        <span className="ki-spin" /> Memproses…
+                      </>
+                    ) : (
+                      NEXT_LABELS[detail.status]
+                    )}
+                  </button>
+                )}
+              </div>
+              {!FINAL_STATUSES.has(detail.status) && (
+                <button
+                  type="button"
+                  className="btn btn-block"
+                  disabled={busyCode === detail.code}
+                  onClick={() => requestCancel(detail)}
+                  style={{
+                    background: "var(--red-50)",
+                    color: "var(--red)",
+                    fontWeight: 700,
+                  }}
+                >
+                  <Icon name="x" size={16} stroke={2.5} /> Batalkan Pesanan
                 </button>
               )}
             </div>
@@ -440,7 +573,7 @@ export default function ManageOrdersPage() {
           pending={pendingChange}
           busy={busyCode === pendingChange.order.code}
           onCancel={() => setPendingChange(null)}
-          onConfirm={applyAdvance}
+          onConfirm={applyChange}
         />
       )}
 
@@ -454,12 +587,14 @@ const STATUS_LABEL = {
   paid: "Dibayar",
   shipped: "Dikirim",
   completed: "Selesai",
+  cancelled: "Dibatalkan",
 };
 
 function ConfirmStatusDialog({ pending, busy, onCancel, onConfirm }) {
-  const { order, next } = pending;
+  const { order, next, kind } = pending;
   const fromLabel = STATUS_LABEL[order.status] || order.status;
   const toLabel = STATUS_LABEL[next] || next;
+  const isCancel = kind === "cancel";
 
   return (
     <div
@@ -495,15 +630,17 @@ function ConfirmStatusDialog({ pending, busy, onCancel, onConfirm }) {
             width: 56,
             height: 56,
             borderRadius: 16,
-            background: "var(--sky-50)",
-            color: "var(--sky-600)",
+            background: isCancel ? "var(--red-50)" : "var(--sky-50)",
+            color: isCancel ? "var(--red)" : "var(--sky-600)",
             display: "grid",
             placeItems: "center",
           }}
         >
-          <Icon name="info" size={26} />
+          <Icon name={isCancel ? "x" : "info"} size={26} stroke={isCancel ? 2.5 : 2} />
         </span>
-        <h3 style={{ fontSize: 19 }}>Ubah status pesanan?</h3>
+        <h3 style={{ fontSize: 19 }}>
+          {isCancel ? "Batalkan pesanan?" : "Ubah status pesanan?"}
+        </h3>
         <div
           className="num"
           style={{ fontWeight: 800, color: "var(--ink)", fontSize: 14 }}
@@ -525,7 +662,7 @@ function ConfirmStatusDialog({ pending, busy, onCancel, onConfirm }) {
             {fromLabel}
           </span>
           <Icon name="arrowR" size={16} style={{ color: "var(--muted)" }} />
-          <span className="badge badge-green">
+          <span className={`badge ${isCancel ? "badge-red" : "badge-green"}`}>
             <span className="dot" />
             {toLabel}
           </span>
@@ -534,7 +671,9 @@ function ConfirmStatusDialog({ pending, busy, onCancel, onConfirm }) {
           className="mut"
           style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55 }}
         >
-          Pelanggan akan melihat status baru di halaman Lacak Pesanan. Lanjutkan?
+          {isCancel
+            ? "Pesanan akan ditandai dibatalkan dan pelanggan melihat statusnya di halaman Lacak Pesanan. Aksi ini tidak bisa dilanjutkan ke status berikutnya."
+            : "Pelanggan akan melihat status baru di halaman Lacak Pesanan. Lanjutkan?"}
         </p>
         <div className="row gap-10" style={{ width: "100%", marginTop: 6 }}>
           <button
@@ -550,17 +689,62 @@ function ConfirmStatusDialog({ pending, busy, onCancel, onConfirm }) {
             className="btn btn-primary btn-block"
             onClick={onConfirm}
             disabled={busy}
+            style={isCancel ? { background: "var(--red)" } : undefined}
           >
             {busy ? (
               <>
                 <span className="ki-spin" /> Memproses…
               </>
+            ) : isCancel ? (
+              "Ya, Batalkan"
             ) : (
               "Ya, Ubah"
             )}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DetailSection({ icon, title, children }) {
+  return (
+    <div
+      style={{
+        borderRadius: 12,
+        padding: 14,
+        marginBottom: 14,
+        boxShadow: "inset 0 0 0 1px var(--line)",
+      }}
+    >
+      <div className="row gap-8" style={{ marginBottom: 10 }}>
+        <span
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: 8,
+            background: "var(--sky-50)",
+            color: "var(--sky-600)",
+            display: "grid",
+            placeItems: "center",
+            flex: "0 0 auto",
+          }}
+        >
+          <Icon name={icon} size={14} />
+        </span>
+        <span
+          style={{
+            fontWeight: 800,
+            color: "var(--ink)",
+            fontSize: 13,
+            textTransform: "uppercase",
+            letterSpacing: ".04em",
+          }}
+        >
+          {title}
+        </span>
+      </div>
+      {children}
     </div>
   );
 }

@@ -12,6 +12,7 @@ export const ORDER_STATUS = {
   PAID: "paid",
   SHIPPED: "shipped",
   COMPLETED: "completed",
+  CANCELLED: "cancelled",
 };
 
 export const ORDER_STATUS_FLOW = [

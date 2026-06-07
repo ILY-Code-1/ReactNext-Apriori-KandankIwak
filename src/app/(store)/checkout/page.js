@@ -102,8 +102,8 @@ export default function CheckoutPage() {
     const e = {};
     if (!values.name.trim()) e.name = "Nama wajib diisi.";
     if (!values.contact.trim()) e.contact = "Nomor WhatsApp wajib diisi.";
-    else if (!/^[0-9+\s-]{8,}$/.test(values.contact.trim()))
-      e.contact = "Format nomor tidak valid.";
+    else if (!/^[0-9]{9,11}$/.test(values.contact.trim()))
+      e.contact = "Nomor WhatsApp 9-11 digit setelah 62.";
     if (!values.kecamatan_code) e.kecamatan_code = "Pilih kecamatan.";
     if (!values.kelurahan_code) e.kelurahan_code = "Pilih kelurahan.";
     if (!values.address_detail.trim())
@@ -187,7 +187,7 @@ export default function CheckoutPage() {
           items: orderItems,
           total,
           customer_name: form.name.trim(),
-          contact: form.contact.trim(),
+          contact: `62${form.contact.trim()}`,
           address,
           payment_method: paymentSnapshot,
           notes: form.notes.trim(),
@@ -265,15 +265,51 @@ export default function CheckoutPage() {
                 required
                 error={showError("contact") ? errors.contact : null}
               >
-                <input
-                  className="input"
-                  placeholder="08xx xxxx xxxx"
-                  value={form.contact}
-                  onChange={(e) => setField("contact", e.target.value)}
-                  onBlur={() => markTouched("contact")}
-                  disabled={submitting}
-                  required
-                />
+                <div style={{ position: "relative" }}>
+                  <span
+                    style={{
+                      position: "absolute",
+                      left: 14,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      fontWeight: 700,
+                      color: "var(--ink)",
+                      pointerEvents: "none",
+                      fontSize: 14,
+                    }}
+                  >
+                    62
+                  </span>
+                  <input
+                    className="input"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel-national"
+                    maxLength={11}
+                    placeholder="8123456789"
+                    style={{ paddingLeft: 38 }}
+                    value={form.contact}
+                    onChange={(e) => {
+                      let v = e.target.value.replace(/\D/g, "");
+                      if (v.startsWith("62")) v = v.slice(2);
+                      else if (v.startsWith("0")) v = v.replace(/^0+/, "");
+                      if (v.length > 11) v = v.slice(0, 11);
+                      setField("contact", v);
+                    }}
+                    onKeyDown={(e) => {
+                      if (
+                        ["Backspace", "Delete", "Tab", "Enter", "ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key) ||
+                        e.ctrlKey ||
+                        e.metaKey
+                      )
+                        return;
+                      if (!/^[0-9]$/.test(e.key)) e.preventDefault();
+                    }}
+                    onBlur={() => markTouched("contact")}
+                    disabled={submitting}
+                    required
+                  />
+                </div>
               </Field>
             </FieldGrid>
           </Section>

@@ -115,40 +115,6 @@ export default function PaymentMethodsPage() {
 
   return (
     <div className="col gap-18 kiup" style={{ minHeight: "calc(100vh - 130px)" }}>
-      <div
-        className="card"
-        style={{
-          padding: "16px 20px",
-          display: "flex",
-          gap: 14,
-          alignItems: "center",
-          background: "var(--sky-50)",
-          border: "1px solid var(--sky-100)",
-        }}
-      >
-        <span
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 11,
-            background: "#fff",
-            color: "var(--sky-600)",
-            display: "grid",
-            placeItems: "center",
-            flex: "0 0 auto",
-          }}
-        >
-          <Icon name="info" size={20} />
-        </span>
-        <p style={{ margin: 0, fontSize: 13.5, color: "var(--body)", fontWeight: 600 }}>
-          Metode pembayaran muncul di halaman checkout pelanggan. Logo dimuat dari{" "}
-          <b style={{ color: "var(--navy)" }}>
-            /public/payment-icon/{"{kode}"}.webp
-          </b>
-          . Pastikan file logo sudah disimpan dengan nama yang sama (mis. <code>bca.webp</code>).
-        </p>
-      </div>
-
       <div className="row">
         <div className="col" style={{ gap: 2 }}>
           <span className="mut" style={{ fontSize: 13, fontWeight: 600 }}>
