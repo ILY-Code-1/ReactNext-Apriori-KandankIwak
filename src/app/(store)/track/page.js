@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Icon from "@/components/ui/Icon";
@@ -30,7 +30,29 @@ const STATUS_ICONS = {
   completed: "spark",
 };
 
-export default function TrackPage() {
+export default function Page() {
+  return (
+    <Suspense fallback={<TrackFallback />}>
+      <TrackPage />
+    </Suspense>
+  );
+}
+
+function TrackFallback() {
+  return (
+    <div
+      className="wrap"
+      style={{ padding: "120px 28px", display: "grid", placeItems: "center" }}
+    >
+      <div className="col" style={{ alignItems: "center", gap: 12 }}>
+        <span className="ki-spin ki-spin-lg" />
+        <span className="mut" style={{ fontWeight: 600 }}>Memuat…</span>
+      </div>
+    </div>
+  );
+}
+
+function TrackPage() {
   const searchParams = useSearchParams();
   const initialCode = (searchParams.get("code") || "").toUpperCase();
   const [code, setCode] = useState(initialCode);
