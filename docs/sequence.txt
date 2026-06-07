@@ -1,0 +1,293 @@
+' == Sequence: Melihat Katalog Produk ==
+@startuml sequence_uc1_katalog
+actor Pelanggan
+participant "Halaman Katalog" as UI
+participant "ProductsService\n(firebase/products.js)" as Service
+database "Firestore\nproducts" as DB
+
+Pelanggan -> UI : Buka /products
+activate UI
+UI -> Service : getAllProducts({onlyActive:true})
+activate Service
+Service -> DB : query orderBy created_at desc
+activate DB
+DB --> Service : daftar produk
+deactivate DB
+Service --> UI : produk aktif
+deactivate Service
+UI -> UI : Filter kategori & harga
+UI --> Pelanggan : Tampilkan kartu produk
+deactivate UI
+@enduml
+
+' == Sequence: Melihat Detail Produk ==
+@startuml sequence_uc2_detail
+actor Pelanggan
+participant "Halaman Detail" as UI
+participant "ProductsService" as Service
+database "Firestore\nproducts" as DB
+
+Pelanggan -> UI : Klik produk (id)
+activate UI
+UI -> Service : getProductById(id)
+activate Service
+Service -> DB : getDoc(products/id)
+activate DB
+DB --> Service : data produk / null
+deactivate DB
+Service --> UI : produk
+deactivate Service
+alt produk ada
+  UI --> Pelanggan : Tampilkan harga, stok, deskripsi
+else produk tidak ada
+  UI --> Pelanggan : "Produk tidak ditemukan"
+end
+deactivate UI
+@enduml
+
+' == Sequence: Mengelola Keranjang Belanja ==
+@startuml sequence_uc3_keranjang
+actor Pelanggan
+participant "Halaman Cart" as UI
+participant "CartContext" as Cart
+participant "ProductsService" as Service
+
+Pelanggan -> UI : Buka /cart
+activate UI
+UI -> Cart : baca items + hydrated
+Cart -> Cart : load dari localStorage("ki_cart_v1")
+Cart --> UI : items map
+UI -> Service : getAllProducts({onlyActive:true})
+activate Service
+Service --> UI : productMap
+deactivate Service
+UI --> Pelanggan : Tampilkan item & total
+Pelanggan -> UI : Ubah qty / hapus item
+UI -> Cart : setQty(id, qty) / remove(id)
+Cart -> Cart : simpan localStorage
+Cart --> UI : items baru
+UI --> Pelanggan : Update tampilan
+deactivate UI
+@enduml
+
+' == Sequence: Checkout & Membuat Pesanan ==
+@startuml sequence_uc4_checkout
+actor Pelanggan
+participant "Halaman Checkout" as UI
+participant "OrdersService\n(addOrderAndTransaction)" as Service
+database "Firestore\norders + transactions" as DB
+
+Pelanggan -> UI : Isi form & klik Lanjutkan
+activate UI
+UI -> UI : validate(form)
+alt valid
+  UI -> UI : generateOrderCode()
+  UI -> Service : addOrderAndTransaction(code, order, txn)
+  activate Service
+  Service -> DB : writeBatch.set(orders/code) + set(transactions)
+  activate DB
+  DB --> Service : commit OK
+  deactivate DB
+  Service --> UI : orderCode
+  deactivate Service
+  UI -> UI : clear cart
+  UI --> Pelanggan : Redirect ke /checkout/success?code=...
+else tidak valid
+  UI --> Pelanggan : Tampilkan error field
+end
+deactivate UI
+@enduml
+
+' == Sequence: Lacak Pesanan ==
+@startuml sequence_uc5_lacak
+actor Pelanggan
+participant "Halaman Track" as UI
+participant "OrdersService\n(getOrderByCode)" as Service
+database "Firestore\norders" as DB
+
+Pelanggan -> UI : Masukkan kode & klik Lacak
+activate UI
+UI -> Service : getOrderByCode(code)
+activate Service
+Service -> DB : getDoc(orders/code)
+activate DB
+DB --> Service : data / null
+deactivate DB
+Service --> UI : order
+deactivate Service
+alt order ditemukan
+  UI --> Pelanggan : Stepper status + ringkasan + item
+else tidak ditemukan
+  UI --> Pelanggan : "Kode tidak ditemukan"
+end
+deactivate UI
+@enduml
+
+' == Sequence: Konfirmasi Pembayaran via WhatsApp ==
+@startuml sequence_uc6_wa
+actor Pelanggan
+participant "Halaman Success" as UI
+participant "WA Builder\n(build-message.js)" as Builder
+participant "WhatsApp Web" as WA
+
+Pelanggan -> UI : Tiba di /checkout/success?code=KI-...
+activate UI
+UI -> UI : getOrderByCode(code) & render
+UI -> Builder : buildOrderMessage(order)
+activate Builder
+Builder --> UI : pesan terformat
+deactivate Builder
+UI -> Builder : buildWhatsAppUrl(message)
+Builder --> UI : wa.me URL
+Pelanggan -> UI : Klik "Konfirmasi via WhatsApp"
+UI -> WA : Buka wa.me/<nomor>?text=...
+WA --> Pelanggan : Chat admin terbuka dengan pesan pra-isi
+deactivate UI
+@enduml
+
+' == Sequence: Login Admin ==
+@startuml sequence_uc7_login
+actor Admin
+participant "Halaman Login" as UI
+participant "AuthService\n(loginAdmin)" as Service
+participant "Firebase Auth" as Auth
+
+Admin -> UI : Isi email & password, klik Masuk
+activate UI
+UI -> Service : loginAdmin(email, password)
+activate Service
+Service -> Auth : signInWithEmailAndPassword(...)
+activate Auth
+Auth --> Service : user / error code
+deactivate Auth
+Service --> UI : user / throw
+deactivate Service
+alt sukses
+  UI --> Admin : Redirect ke /admin
+else gagal
+  UI -> Service : translateAuthError(code)
+  UI --> Admin : Tampilkan pesan error
+end
+deactivate UI
+@enduml
+
+' == Sequence: Mengelola Produk ==
+@startuml sequence_uc8_produk
+actor Admin
+participant "Halaman Manage Products" as UI
+participant "ProductsService" as Service
+participant "Cloudinary" as Cloud
+database "Firestore\nproducts" as DB
+
+Admin -> UI : Klik Tambah / Edit Produk
+activate UI
+Admin -> UI : Isi form & pilih gambar
+alt ada file gambar
+  UI -> Cloud : uploadImage(file)
+  activate Cloud
+  Cloud --> UI : image_url
+  deactivate Cloud
+end
+alt mode tambah
+  UI -> Service : addProduct(payload)
+else mode edit
+  UI -> Service : updateProduct(id, payload)
+end
+activate Service
+Service -> DB : addDoc / updateDoc
+activate DB
+DB --> Service : OK
+deactivate DB
+Service --> UI : sukses
+deactivate Service
+UI -> Service : getAllProducts()
+Service --> UI : daftar terbaru
+UI --> Admin : Tabel ter-refresh + toast
+deactivate UI
+@enduml
+
+' == Sequence: Mengelola Pesanan ==
+@startuml sequence_uc9_pesanan
+actor Admin
+participant "Halaman Manage Orders" as UI
+participant "OrdersService" as Service
+database "Firestore\norders" as DB
+
+Admin -> UI : Buka /admin/orders
+activate UI
+UI -> Service : getAllOrders()
+activate Service
+Service -> DB : query orderBy created_at desc
+DB --> Service : pesanan
+Service --> UI : daftar pesanan
+deactivate Service
+UI --> Admin : Tampilkan filter & tabel
+Admin -> UI : Klik Tandai Dibayar / Batalkan
+UI --> Admin : Tampilkan dialog konfirmasi
+Admin -> UI : Konfirmasi
+UI -> Service : updateOrderStatus(code, nextStatus)
+activate Service
+Service -> DB : updateDoc(orders/code)
+DB --> Service : OK
+Service --> UI : sukses
+deactivate Service
+UI --> Admin : Refresh row + toast
+deactivate UI
+@enduml
+
+' == Sequence: Mengelola Metode Pembayaran ==
+@startuml sequence_uc10_metode
+actor Admin
+participant "Halaman Payment Methods" as UI
+participant "PaymentMethodsService" as Service
+database "Firestore\npayment_methods" as DB
+
+Admin -> UI : Buka /admin/payment-methods
+activate UI
+UI -> Service : getAllPaymentMethods()
+activate Service
+Service -> DB : query orderBy created_at asc
+DB --> Service : daftar metode
+Service --> UI : metode
+deactivate Service
+alt Tambah / Edit
+  Admin -> UI : Pilih kode (bca/dana), isi nama & nomor
+  UI -> Service : addPaymentMethod / updatePaymentMethod
+  Service -> DB : addDoc / updateDoc
+  DB --> Service : OK
+else Hapus
+  Admin -> UI : Konfirmasi hapus
+  UI -> Service : deletePaymentMethod(id)
+  Service -> DB : deleteDoc
+end
+UI --> Admin : Tabel ter-refresh + toast
+deactivate UI
+@enduml
+
+' == Sequence: Menjalankan Analisis Apriori ==
+@startuml sequence_uc11_apriori
+actor Admin
+participant "Halaman Apriori" as UI
+participant "AprioriEngine" as Engine
+participant "RulesService\n(saveRules)" as Rules
+database "Firestore\ntransactions + rules" as DB
+
+Admin -> UI : Set support & confidence, klik Jalankan
+activate UI
+UI -> DB : getAllTransactions()
+activate DB
+DB --> UI : dataset itemsets
+deactivate DB
+UI -> Engine : runApriori(dataset, support, confidence)
+activate Engine
+Engine --> UI : rules + statistik
+deactivate Engine
+UI -> Rules : saveRules(rules, parameters)
+activate Rules
+Rules -> DB : batch delete old + set new
+DB --> Rules : OK
+Rules --> UI : sukses
+deactivate Rules
+UI --> Admin : Tampilkan tabel Antecedent → Consequent
+deactivate UI
+@enduml

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<title>Whitebox Testing – Kandank Iwak</title>
+<style>
+  body { font-family: "Segoe UI", Arial, sans-serif; color:#1c1a4d; background:#f7fafc; margin:0; padding:32px; }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  h2 { font-size: 18px; margin-top: 32px; color:#0a1f44; border-bottom: 2px solid #cfe9f8; padding-bottom: 6px;}
+  h3 { font-size: 15.5px; margin-top: 18px; color:#01497c; }
+  table { border-collapse: collapse; width:100%; margin-top: 10px; background:#fff; }
+  th, td { border:1px solid #d6e0ea; padding:7px 10px; font-size: 13px; vertical-align: top; text-align:left; }
+  th { background:#0a1f44; color:#fff; }
+  tr:nth-child(even) td { background:#f4f9ff; }
+  pre { background:#0f172a; color:#cbd5e1; padding:16px; border-radius: 8px; overflow:auto; font-size: 12.5px; line-height: 1.45; }
+  code { font-family: Consolas, "Courier New", monospace; background:#eef5ff; padding: 1px 5px; border-radius:4px; color:#01497c; }
+  .card { background:#fff; border:1px solid #dbe6f1; border-radius: 10px; padding: 14px 18px; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Whitebox Testing — Kandank Iwak</h1>
+<p>Pengujian kotak putih meliputi flowchart, flowgraph, perhitungan cyclomatic complexity, dan basis path tiap fungsi inti. Sumber kode yang diuji ditunjukkan dengan file:line.</p>
+
+<!-- =================== UNIT 1 =================== -->
+<h2>Unit 1 — validate() pada Halaman Checkout</h2>
+<div class="card">
+Sumber: <code>src/app/(store)/checkout/page.js</code> baris 101–113. Fungsi memvalidasi form pemesan (nama, contact, kecamatan, kelurahan, alamat, metode pembayaran) dan mengembalikan map error.
+</div>
+
+<h3>Flowchart</h3>
+<pre>
+@startuml
+start
+:Mulai validate(values);
+:e = {};
+if (name kosong?) then ([ya])
+  :e.name = "Nama wajib";
+endif
+if (contact kosong?) then ([ya])
+  :e.contact = "WA wajib";
+else ([tidak])
+  if (regex 9-11 digit gagal?) then ([ya])
+    :e.contact = "Format salah";
+  endif
+endif
+if (kecamatan kosong?) then ([ya])
+  :e.kecamatan_code = "Pilih kec";
+endif
+if (kelurahan kosong?) then ([ya])
+  :e.kelurahan_code = "Pilih kel";
+endif
+if (alamat kosong?) then ([ya])
+  :e.address_detail = "Alamat wajib";
+endif
+if (payment kosong?) then ([ya])
+  :e.payment_method_id = "Pilih metode";
+endif
+:return e;
+stop
+@enduml
+</pre>
+
+<h3>Flowgraph</h3>
+<pre>
+@startuml
+skinparam circle {
+  BackgroundColor #cfe9f8
+  BorderColor #01497c
+}
+circle "1" as N1
+circle "2" as N2
+circle "3" as N3
+circle "4" as N4
+circle "5" as N5
+circle "6" as N6
+circle "7" as N7
+circle "8" as N8
+circle "9" as N9
+circle "10" as N10
+
+N1 --> N2 : name?
+N2 --> N3
+N1 --> N3 : skip
+N3 --> N4 : contact?
+N4 --> N5 : regex?
+N3 --> N5 : skip
+N5 --> N6 : kecamatan?
+N5 --> N7 : skip
+N6 --> N7
+N7 --> N8 : kelurahan?
+N7 --> N9 : skip
+N8 --> N9
+N9 --> N10 : alamat & payment
+@enduml
+</pre>
+
+<h3>Cyclomatic Complexity</h3>
+<table>
+<tr><th>Metrik</th><th>Nilai</th></tr>
+<tr><td>Predikat (P)</td><td>7</td></tr>
+<tr><td>V(G) = P + 1</td><td>8</td></tr>
+<tr><td>Edge (E)</td><td>16</td></tr>
+<tr><td>Node (N)</td><td>10</td></tr>
+<tr><td>V(G) = E − N + 2</td><td>8</td></tr>
+</table>
+
+<h3>Basis Path / Test Case</h3>
+<table>
+<thead><tr><th>Path</th><th>Skenario</th><th>Input</th><th>Output Diharapkan</th></tr></thead>
+<tbody>
+<tr><td>P1</td><td>Semua field kosong</td><td>form EMPTY_FORM</td><td>e berisi 6 kunci error</td></tr>
+<tr><td>P2</td><td>Hanya nama diisi</td><td>name="Budi", lainnya kosong</td><td>e.name tidak ada, 5 error lain</td></tr>
+<tr><td>P3</td><td>Contact 3 digit</td><td>contact="812"</td><td>e.contact = format error</td></tr>
+<tr><td>P4</td><td>Contact valid 9 digit</td><td>contact="812345678"</td><td>e.contact tidak ada</td></tr>
+<tr><td>P5</td><td>Pilih kecamatan saja, kelurahan kosong</td><td>kecamatan_code="3603130"</td><td>e.kelurahan_code error</td></tr>
+<tr><td>P6</td><td>Alamat hanya whitespace</td><td>address_detail="   "</td><td>e.address_detail error</td></tr>
+<tr><td>P7</td><td>Semua valid kecuali payment</td><td>payment_method_id=""</td><td>e.payment_method_id error</td></tr>
+<tr><td>P8</td><td>Semua valid</td><td>form lengkap</td><td>e == {} (form lolos)</td></tr>
+</tbody>
+</table>
+
+<!-- =================== UNIT 2 =================== -->
+<h2>Unit 2 — generateOrderCode()</h2>
+<div class="card">
+Sumber: <code>src/lib/utils/order-code.js</code> baris 25–35. Membuat kode unik <code>KI-YYYYMMDD-XXXX</code> dengan retry sampai 5 kali jika bentrok.
+</div>
+
+<h3>Flowchart</h3>
+<pre>
+@startuml
+start
+:prefix = todayPrefix();
+:attempt = 0;
+while (attempt &lt; 5?) is ([ya])
+  :code = prefix + randomSuffix();
+  :snap = getDoc(orders/code);
+  if (snap.exists()?) then ([ya])
+    :attempt++;
+  else ([tidak])
+    :return code;
+    stop
+  endif
+endwhile ([tidak])
+:throw "Gagal generate kode unik";
+stop
+@enduml
+</pre>
+
+<h3>Flowgraph</h3>
+<pre>
+@startuml
+circle "1" as N1
+circle "2" as N2
+circle "3" as N3
+circle "4" as N4
+circle "5" as N5
+N1 --> N2
+N2 --> N3 : loop body
+N3 --> N4 : exists?
+N4 --> N2 : retry
+N3 --> N5 : !exists return
+N2 --> N5 : loop exit throw
+@enduml
+</pre>
+
+<h3>Cyclomatic Complexity</h3>
+<table>
+<tr><th>Metrik</th><th>Nilai</th></tr>
+<tr><td>Predikat (P)</td><td>2 (loop + exists?)</td></tr>
+<tr><td>V(G) = P + 1</td><td>3</td></tr>
+<tr><td>Edge (E)</td><td>6</td></tr>
+<tr><td>Node (N)</td><td>5</td></tr>
+<tr><td>V(G) = E − N + 2</td><td>3</td></tr>
+</table>
+
+<h3>Basis Path</h3>
+<table>
+<thead><tr><th>Path</th><th>Skenario</th><th>Input</th><th>Output Diharapkan</th></tr></thead>
+<tbody>
+<tr><td>P1</td><td>Iterasi pertama kode unik</td><td>kode random tidak bentrok</td><td>Return KI-YYYYMMDD-XXXX</td></tr>
+<tr><td>P2</td><td>Bentrok 2 kali lalu unik</td><td>2 dokumen sudah ada</td><td>Return kode pada attempt ke-3</td></tr>
+<tr><td>P3</td><td>5x bentrok berturut-turut</td><td>semua suffix sudah dipakai</td><td>Throw "Gagal generate kode pesanan unik"</td></tr>
+</tbody>
+</table>
+
+<!-- =================== UNIT 3 =================== -->
+<h2>Unit 3 — addOrderAndTransaction()</h2>
+<div class="card">
+Sumber: <code>src/lib/firebase/orders.js</code> baris 47–73. Menyimpan dokumen order &amp; transaction secara atomik via writeBatch.
+</div>
+
+<h3>Flowchart</h3>
+<pre>
+@startuml
+start
+:batch = writeBatch(db);
+:orderRef = doc(orders/code);
+:txnRef = doc(transactions auto);
+:batch.set(orderRef, orderData);
+:batch.set(txnRef, transactionData);
+if (batch.commit() berhasil?) then ([ya])
+  :return orderCode;
+else ([tidak])
+  :throw error;
+endif
+stop
+@enduml
+</pre>
+
+<h3>Flowgraph</h3>
+<pre>
+@startuml
+circle "1" as N1
+circle "2" as N2
+circle "3" as N3
+circle "4" as N4
+N1 --> N2 : set order + txn
+N2 --> N3 : commit?
+N3 --> N4 : sukses
+N3 --> N4 : gagal throw
+@enduml
+</pre>
+
+<h3>Cyclomatic Complexity</h3>
+<table>
+<tr><th>Metrik</th><th>Nilai</th></tr>
+<tr><td>Predikat (P)</td><td>1</td></tr>
+<tr><td>V(G) = P + 1</td><td>2</td></tr>
+<tr><td>Edge (E)</td><td>4</td></tr>
+<tr><td>Node (N)</td><td>4</td></tr>
+<tr><td>V(G) = E − N + 2</td><td>2</td></tr>
+</table>
+
+<h3>Basis Path</h3>
+<table>
+<thead><tr><th>Path</th><th>Skenario</th><th>Input</th><th>Output Diharapkan</th></tr></thead>
+<tbody>
+<tr><td>P1</td><td>Commit sukses</td><td>order &amp; txn valid</td><td>Order &amp; transaction tersimpan, return orderCode</td></tr>
+<tr><td>P2</td><td>Commit gagal (network down)</td><td>Firestore offline</td><td>Throw error, tidak ada dokumen tersimpan parsial</td></tr>
+</tbody>
+</table>
+
+<!-- =================== UNIT 4 =================== -->
+<h2>Unit 4 — requestAdvance() &amp; applyChange() pada Manage Orders</h2>
+<div class="card">
+Sumber: <code>src/app/admin/(authed)/orders/page.js</code> baris 72–103. Memajukan status pesanan ke tahap berikutnya berdasarkan ORDER_STATUS_FLOW.
+</div>
+
+<h3>Flowchart</h3>
+<pre>
+@startuml
+start
+:idx = ORDER_STATUS_FLOW.indexOf(order.status);
+if (idx &lt; 0 atau idx == last?) then ([ya])
+  :return (tidak ada aksi);
+  stop
+endif
+:next = ORDER_STATUS_FLOW[idx + 1];
+:setPendingChange(order, next);
+if (Admin konfirmasi?) then ([ya])
+  :setBusyCode(order.code);
+  if (updateOrderStatus berhasil?) then ([ya])
+    :update list lokal;
+    :tampilkan toast sukses;
+  else ([tidak])
+    :tampilkan toast gagal;
+  endif
+  :setBusyCode(null);
+else ([tidak])
+  :setPendingChange(null);
+endif
+stop
+@enduml
+</pre>
+
+<h3>Flowgraph</h3>
+<pre>
+@startuml
+circle "1" as N1
+circle "2" as N2
+circle "3" as N3
+circle "4" as N4
+circle "5" as N5
+circle "6" as N6
+circle "7" as N7
+
+N1 --> N2 : idx valid?
+N2 --> N7 : no (early return)
+N2 --> N3 : yes
+N3 --> N4 : konfirmasi?
+N4 --> N7 : batal
+N4 --> N5 : ya
+N5 --> N6 : update sukses?
+N6 --> N7 : sukses / gagal
+@enduml
+</pre>
+
+<h3>Cyclomatic Complexity</h3>
+<table>
+<tr><th>Metrik</th><th>Nilai</th></tr>
+<tr><td>Predikat (P)</td><td>3</td></tr>
+<tr><td>V(G) = P + 1</td><td>4</td></tr>
+<tr><td>Edge (E)</td><td>9</td></tr>
+<tr><td>Node (N)</td><td>7</td></tr>
+<tr><td>V(G) = E − N + 2</td><td>4</td></tr>
+</table>
+
+<h3>Basis Path</h3>
+<table>
+<thead><tr><th>Path</th><th>Skenario</th><th>Input</th><th>Output Diharapkan</th></tr></thead>
+<tbody>
+<tr><td>P1</td><td>Status sudah completed</td><td>status="completed"</td><td>Early return, tombol tidak muncul</td></tr>
+<tr><td>P2</td><td>Status ordered, admin batal konfirmasi</td><td>klik tombol lalu klik "Batal"</td><td>Status tetap "ordered"</td></tr>
+<tr><td>P3</td><td>Status ordered, admin konfirmasi, update sukses</td><td>status→paid</td><td>Toast sukses, badge berubah</td></tr>
+<tr><td>P4</td><td>Status ordered, konfirmasi, network gagal</td><td>updateDoc throw</td><td>Toast "Gagal memperbarui status"</td></tr>
+</tbody>
+</table>
+
+<!-- =================== UNIT 5 =================== -->
+<h2>Unit 5 — saveRules() (Apriori Persist)</h2>
+<div class="card">
+Sumber: <code>src/lib/firebase/rules.js</code> baris 15–34. Mengganti seluruh koleksi rules dengan hasil analisis baru via writeBatch.
+</div>
+
+<h3>Flowchart</h3>
+<pre>
+@startuml
+start
+:existing = getDocs(rules);
+:batch = writeBatch(db);
+:calculated_at = serverTimestamp();
+:loop hapus tiap dokumen lama;
+:loop tambah tiap rule baru\n(antecedent, consequent, support, confidence, parameters);
+if (batch.commit()?) then ([sukses])
+  :selesai;
+else ([gagal])
+  :throw error;
+endif
+stop
+@enduml
+</pre>
+
+<h3>Flowgraph</h3>
+<pre>
+@startuml
+circle "1" as N1
+circle "2" as N2
+circle "3" as N3
+circle "4" as N4
+circle "5" as N5
+N1 --> N2 : ambil existing
+N2 --> N3 : loop delete
+N3 --> N4 : loop add
+N4 --> N5 : commit?
+N4 --> N5 : sukses/gagal
+@enduml
+</pre>
+
+<h3>Cyclomatic Complexity</h3>
+<table>
+<tr><th>Metrik</th><th>Nilai</th></tr>
+<tr><td>Predikat (P)</td><td>3 (2 loop + 1 commit)</td></tr>
+<tr><td>V(G) = P + 1</td><td>4</td></tr>
+<tr><td>Edge (E)</td><td>7</td></tr>
+<tr><td>Node (N)</td><td>5</td></tr>
+<tr><td>V(G) = E − N + 2</td><td>4</td></tr>
+</table>
+
+<h3>Basis Path</h3>
+<table>
+<thead><tr><th>Path</th><th>Skenario</th><th>Input</th><th>Output Diharapkan</th></tr></thead>
+<tbody>
+<tr><td>P1</td><td>Koleksi kosong, rules baru disimpan</td><td>existing=[], rules=10 item</td><td>10 dokumen baru tertulis</td></tr>
+<tr><td>P2</td><td>Koleksi lama 5 dokumen, rules baru 8 item</td><td>existing=5, rules=8</td><td>5 dihapus + 8 ditulis (atomik)</td></tr>
+<tr><td>P3</td><td>Koleksi lama 3, rules baru 0</td><td>rules=[]</td><td>3 dokumen lama dihapus, tidak ada penambahan</td></tr>
+<tr><td>P4</td><td>Commit gagal</td><td>Firestore down</td><td>Throw, koleksi lama tetap utuh</td></tr>
+</tbody>
+</table>
+
+</body>
+</html>

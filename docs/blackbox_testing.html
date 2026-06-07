@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<title>Blackbox Testing – Kandank Iwak</title>
+<style>
+  body { font-family: "Segoe UI", Arial, sans-serif; color:#1c1a4d; background:#f7fafc; margin:0; padding:32px; }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  h2 { font-size: 18px; margin-top: 28px; color:#0a1f44; }
+  table { border-collapse: collapse; width:100%; margin-top: 12px; background:#fff; }
+  th, td { border:1px solid #d6e0ea; padding:8px 10px; font-size: 13px; vertical-align: top; text-align:left; }
+  th { background:#0a1f44; color:#fff; }
+  tr:nth-child(even) td { background:#f4f9ff; }
+  .pass { color:#0a8a4d; font-weight:700; }
+  .fail { color:#b9281f; font-weight:700; }
+  code { font-family: Consolas, "Courier New", monospace; background:#eef5ff; padding: 1px 5px; border-radius:4px; color:#01497c; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h1>Blackbox Testing — Kandank Iwak</h1>
+<p>Pengujian kotak hitam difokuskan pada input/output fitur tanpa memandang implementasi internal. Setiap use case memiliki minimal 2 skenario (sukses &amp; gagal).</p>
+
+<table>
+<thead>
+<tr>
+  <th>No</th>
+  <th>Deskripsi Pengujian</th>
+  <th>Langkah Uji</th>
+  <th>Data Uji</th>
+  <th>Hasil yang Diharapkan</th>
+  <th>Hasil Pengujian</th>
+  <th>Status</th>
+  <th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+
+<tr><td>1</td><td>Menampilkan katalog produk aktif</td><td>Buka /products tanpa filter</td><td>—</td><td>Tampil semua produk dengan <code>active != false</code></td><td>Tampil 6 produk aktif</td><td class="pass">Pass</td><td>Produk nonaktif tersaring</td></tr>
+<tr><td>2</td><td>Filter kategori "Ikan Segar"</td><td>Pilih kategori Ikan Segar di sidebar</td><td>cat=Ikan Segar</td><td>Hanya produk kategori Ikan Segar yang tampil</td><td>Tampil 2 produk</td><td class="pass">Pass</td><td>—</td></tr>
+<tr><td>3</td><td>Slider harga maksimum di bawah harga terendah</td><td>Geser slider harga ke 1000</td><td>maxPrice=1000</td><td>"Tidak ada produk" muncul</td><td>Empty state muncul</td><td class="pass">Pass</td><td>Edge case batas bawah</td></tr>
+
+<tr><td>4</td><td>Lihat detail produk valid</td><td>Klik kartu produk Nila Segar Hidup</td><td>id=QkW0aB2xz3</td><td>Halaman detail dengan harga &amp; deskripsi tampil</td><td>Detail produk tampil benar</td><td class="pass">Pass</td><td>—</td></tr>
+<tr><td>5</td><td>Detail produk ID tidak ada</td><td>Buka URL /products/produk-hantu</td><td>id=produk-hantu</td><td>"Produk tidak ditemukan" + link kembali</td><td>Empty state tampil</td><td class="pass">Pass</td><td>—</td></tr>
+
+<tr><td>6</td><td>Tambah produk ke keranjang dari halaman detail</td><td>Klik "Tambah ke Keranjang" dengan qty=2</td><td>qty=2, produk Nila</td><td>Item tersimpan di localStorage, badge keranjang naik 2</td><td>Badge berubah 2</td><td class="pass">Pass</td><td>—</td></tr>
+<tr><td>7</td><td>Ubah qty di keranjang melebihi stok</td><td>Atur stepper qty &gt; stok produk</td><td>qty=99, stok=5</td><td>Stepper terbatas ke stok maksimum (max prop)</td><td>Qty mentok di 5</td><td class="pass">Pass</td><td>—</td></tr>
+<tr><td>8</td><td>Hapus item dari keranjang</td><td>Klik tombol Hapus di baris item</td><td>—</td><td>Item hilang dari list, total ter-update</td><td>Item terhapus</td><td class="pass">Pass</td><td>—</td></tr>
+
+<tr><td>9</td><td>Checkout dengan form valid</td><td>Isi semua field benar + pilih BCA → submit</td><td>nama=Budi, contact=8123456789, kec/kel valid, alamat diisi</td><td>Buat order &amp; transaction, redirect ke /checkout/success</td><td>Order tercatat di Firestore</td><td class="pass">Pass</td><td>Kode KI-YYYYMMDD-XXXX</td></tr>
+<tr><td>10</td><td>Checkout nomor WhatsApp kurang dari 9 digit</td><td>Isi contact=812 lalu submit</td><td>contact=812</td><td>Pesan error "Nomor WhatsApp 9-11 digit setelah 62"</td><td>Error tampil di field</td><td class="pass">Pass</td><td>Regex /^[0-9]{9,11}$/</td></tr>
+<tr><td>11</td><td>Checkout tanpa memilih metode pembayaran</td><td>Lewati payment_method_id, klik Lanjutkan</td><td>payment_method_id=""</td><td>Pesan error "Pilih metode pembayaran"</td><td>Error tampil</td><td class="pass">Pass</td><td>—</td></tr>
+
+<tr><td>12</td><td>Lacak pesanan dengan kode valid</td><td>Buka /track?code=KI-20260606-AB12</td><td>code valid</td><td>Stepper status + ringkasan tampil</td><td>Status "Dipesan" terlihat</td><td class="pass">Pass</td><td>—</td></tr>
+<tr><td>13</td><td>Lacak pesanan dengan kode salah</td><td>Isi kode acak, klik Lacak</td><td>code=ABCD1234</td><td>"Kode tidak ditemukan"</td><td>Pesan kode tidak ada</td><td class="pass">Pass</td><td>—</td></tr>
+
+<tr><td>14</td><td>Konfirmasi WhatsApp dari halaman sukses</td><td>Klik tombol "Konfirmasi via WhatsApp"</td><td>order valid</td><td>Tab WA terbuka dengan pesan pra-isi (kode, item, total)</td><td>WA Web terbuka</td><td class="pass">Pass</td><td>—</td></tr>
+<tr><td>15</td><td>Salin nomor rekening dengan tombol Copy</td><td>Klik tombol salin di kartu rekening</td><td>—</td><td>Clipboard berisi nomor rekening, tooltip "Tersalin"</td><td>Clipboard ter-isi</td><td class="pass">Pass</td><td>—</td></tr>
+
+<tr><td>16</td><td>Login admin kredensial benar</td><td>Isi email/password valid, klik Masuk</td><td>email=admin@kandankiwak.id</td><td>Redirect ke /admin, dashboard tampil</td><td>Redirect berhasil</td><td class="pass">Pass</td><td>Firebase Auth</td></tr>
+<tr><td>17</td><td>Login admin password salah</td><td>Isi password keliru, submit</td><td>password=wrong</td><td>Pesan "Email atau password salah."</td><td>Pesan error tampil</td><td class="pass">Pass</td><td>translateAuthError</td></tr>
+
+<tr><td>18</td><td>Tambah produk baru</td><td>Buka modal Tambah, isi nama+harga, simpan</td><td>name="Nila Frozen Pack", price=42000</td><td>Toast "Produk ditambahkan", produk baru muncul di tabel</td><td>Produk tersimpan</td><td class="pass">Pass</td><td>—</td></tr>
+<tr><td>19</td><td>Tambah produk tanpa nama</td><td>Kosongkan name, isi harga, klik Simpan</td><td>name="", price=10000</td><td>Pesan "Nama produk wajib diisi."</td><td>Error tampil</td><td class="pass">Pass</td><td>—</td></tr>
+<tr><td>20</td><td>Atur stok lewat tombol +/-</td><td>Klik + di baris produk</td><td>stok awal=5</td><td>Stok bertambah 1 di tabel</td><td>Stok=6</td><td class="pass">Pass</td><td>—</td></tr>
+<tr><td>21</td><td>Nonaktifkan produk</td><td>Klik ikon trash di baris</td><td>—</td><td>Produk berlabel "Nonaktif", tidak tampil di toko</td><td>Status nonaktif</td><td class="pass">Pass</td><td>—</td></tr>
+
+<tr><td>22</td><td>Ubah status pesanan Dipesan → Dibayar</td><td>Klik "Tandai Dibayar" → konfirmasi</td><td>order status=ordered</td><td>Status menjadi paid, badge biru</td><td>Status ter-update</td><td class="pass">Pass</td><td>—</td></tr>
+<tr><td>23</td><td>Batalkan pesanan yang sudah Selesai</td><td>Filter Selesai, cari tombol Batalkan</td><td>order status=completed</td><td>Tombol Batalkan tidak muncul (final status)</td><td>Tombol disembunyikan</td><td class="pass">Pass</td><td>FINAL_STATUSES set</td></tr>
+<tr><td>24</td><td>Filter pesanan status Dibatalkan</td><td>Klik chip "Dibatalkan"</td><td>filter=cancelled</td><td>Hanya pesanan cancelled yang tampil</td><td>List ter-filter</td><td class="pass">Pass</td><td>—</td></tr>
+
+<tr><td>25</td><td>Tambah metode pembayaran BCA</td><td>Buka modal, pilih bca, isi nama &amp; rek</td><td>code=bca, name="Anwar Saputra", num="1234567890"</td><td>Toast sukses, metode muncul di tabel uppercase BCA</td><td>BCA tersimpan</td><td class="pass">Pass</td><td>—</td></tr>
+<tr><td>26</td><td>Tambah metode tanpa kode</td><td>Lewati select kode, klik Simpan</td><td>payment_method=""</td><td>Pesan "Pilih metode pembayaran."</td><td>Error tampil</td><td class="pass">Pass</td><td>—</td></tr>
+<tr><td>27</td><td>Hapus metode pembayaran</td><td>Klik trash → konfirmasi Ya, Hapus</td><td>id=valid</td><td>Toast "Metode pembayaran dihapus", row hilang</td><td>Row terhapus</td><td class="pass">Pass</td><td>—</td></tr>
+
+<tr><td>28</td><td>Jalankan Apriori tanpa data transaksi</td><td>Klik "Jalankan Analisis" di /admin/apriori</td><td>transactions kosong</td><td>"Belum ada hasil" / tombol disabled</td><td>Disabled state</td><td class="pass">Pass</td><td>Belum pernah dijalankan</td></tr>
+<tr><td>29</td><td>Jalankan Apriori dengan data cukup</td><td>Atur support=0.1, confidence=0.3, jalankan</td><td>≥30 transaksi</td><td>Tabel Antecedent → Consequent tampil terurut confidence desc</td><td>Rules tampil</td><td class="pass">Pass</td><td>Rules disimpan</td></tr>
+
+</tbody>
+</table>
+
+</body>
+</html>

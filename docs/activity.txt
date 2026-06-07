@@ -1,0 +1,206 @@
+' == Activity: Melihat Katalog Produk ==
+@startuml activity_uc1_katalog
+start
+:Buka halaman /products;
+:Sistem memuat produk aktif dari Firestore;
+:Tampilkan daftar produk + filter kategori & harga;
+:Pelanggan memilih kategori / atur slider harga maks;
+if (Ada produk hasil filter?) then ([ya])
+  :Tampilkan kartu produk yang cocok;
+else ([tidak])
+  :Tampilkan "Tidak ada produk";
+endif
+stop
+@enduml
+
+' == Activity: Melihat Detail Produk ==
+@startuml activity_uc2_detail
+start
+:Pelanggan klik kartu produk di katalog;
+:Sistem ambil produk by ID dari Firestore;
+if (Produk ditemukan?) then ([ya])
+  :Tampilkan gambar, harga, deskripsi, stok;
+  :Pelanggan atur jumlah (stepper);
+  if (Klik "Tambah ke Keranjang"?) then ([ya])
+    :Item masuk keranjang lokal;
+  else ([tidak])
+    :Klik "Beli Sekarang" lalu arahkan ke keranjang;
+  endif
+else ([tidak])
+  :Tampilkan "Produk tidak ditemukan";
+endif
+stop
+@enduml
+
+' == Activity: Mengelola Keranjang Belanja ==
+@startuml activity_uc3_keranjang
+start
+:Pelanggan buka /cart;
+:Sistem baca item dari localStorage & sinkron produk;
+if (Keranjang kosong?) then ([ya])
+  :Tampilkan empty state + tombol "Mulai Belanja";
+  stop
+else ([tidak])
+  :Tampilkan daftar item, subtotal, ongkir, total;
+  repeat
+    :Pelanggan ubah qty / hapus item;
+    :Sistem update localStorage;
+  repeat while (Pelanggan masih edit?) is ([ya]) not ([tidak])
+  :Pelanggan klik "Lanjut ke Checkout";
+endif
+stop
+@enduml
+
+' == Activity: Checkout & Membuat Pesanan ==
+@startuml activity_uc4_checkout
+|Pelanggan|
+start
+:Isi data pemesan & no. WhatsApp (62xxxx);
+:Pilih kecamatan & kelurahan Kab. Tangerang;
+:Isi detail alamat;
+:Pilih metode pembayaran;
+:Klik "Lanjutkan Pembayaran";
+|Sistem|
+:Validasi seluruh field form;
+if (Form valid?) then ([ya])
+  :Generate kode pesanan unik (KI-YYYYMMDD-XXXX);
+  :Simpan orders + transactions (batch Firestore);
+  :Kosongkan keranjang & arahkan ke /checkout/success;
+else ([tidak])
+  :Tampilkan pesan error pada field;
+  stop
+endif
+stop
+@enduml
+
+' == Activity: Lacak Pesanan ==
+@startuml activity_uc5_lacak
+start
+:Pelanggan buka /track;
+:Masukkan kode pesanan (mis. KI-20260606-AB12);
+:Klik tombol "Lacak";
+:Sistem ambil dokumen orders by code;
+if (Pesanan ditemukan?) then ([ya])
+  if (Status = cancelled?) then ([ya])
+    :Tampilkan banner "Pesanan dibatalkan";
+  else ([tidak])
+    :Tampilkan stepper status\n(Dipesan → Dibayar → Dikirim → Selesai);
+  endif
+  :Tampilkan ringkasan & item pesanan;
+else ([tidak])
+  :Tampilkan "Kode tidak ditemukan";
+endif
+stop
+@enduml
+
+' == Activity: Konfirmasi Pembayaran via WhatsApp ==
+@startuml activity_uc6_wa
+start
+:Pelanggan tiba di /checkout/success;
+:Sistem tampilkan ID transaksi, nominal, rekening tujuan;
+:Pelanggan salin nomor rekening & nominal;
+:Pelanggan transfer ke rekening tujuan;
+:Pelanggan klik "Konfirmasi via WhatsApp";
+:Sistem buka WhatsApp dengan pesan pra-isi (kode, item, total);
+:Pelanggan lampirkan bukti transfer di chat admin;
+stop
+@enduml
+
+' == Activity: Login Admin ==
+@startuml activity_uc7_login
+start
+:Admin buka /admin/login;
+:Masukkan email & password;
+:Klik "Masuk ke Dashboard";
+:Sistem panggil Firebase Auth (signInWithEmailAndPassword);
+if (Kredensial valid?) then ([ya])
+  :Redirect ke /admin (dashboard);
+else ([tidak])
+  :Tampilkan pesan error\n(diterjemahkan ke Bahasa Indonesia);
+endif
+stop
+@enduml
+
+' == Activity: Mengelola Produk ==
+@startuml activity_uc8_produk
+start
+:Admin buka /admin/products;
+:Sistem ambil semua produk dari Firestore;
+:Tampilkan tabel produk;
+if (Aksi yang dipilih?) then ([Tambah/Edit])
+  :Buka modal form;
+  :Admin isi nama, kategori, harga, stok, satuan, deskripsi;
+  if (Pilih gambar baru?) then ([ya])
+    :Upload ke Cloudinary, dapatkan image_url;
+  else ([tidak])
+  endif
+  :Simpan ke Firestore (addProduct / updateProduct);
+elseif ([Atur stok])
+  :Klik +/- pada baris;
+  :updateProduct dengan stok baru;
+elseif ([Nonaktifkan/Aktifkan])
+  :Toggle field active;
+endif
+:Refresh daftar produk;
+stop
+@enduml
+
+' == Activity: Mengelola Pesanan ==
+@startuml activity_uc9_pesanan
+start
+:Admin buka /admin/orders;
+:Sistem load semua pesanan terurut terbaru;
+:Tampilkan filter (Semua/Dipesan/Dibayar/Dikirim/Selesai/Dibatalkan);
+:Admin pilih filter atau klik "Detail";
+if (Aksi status?) then ([Lanjut ke status berikutnya])
+  :Tampilkan dialog konfirmasi from→to;
+  if (Admin konfirmasi?) then ([ya])
+    :updateOrderStatus ke status berikutnya;
+  endif
+elseif ([Batalkan pesanan])
+  :Tampilkan dialog konfirmasi;
+  if (Admin konfirmasi?) then ([ya])
+    :updateOrderStatus = cancelled;
+  endif
+endif
+:Refresh list & tampilkan toast;
+stop
+@enduml
+
+' == Activity: Mengelola Metode Pembayaran ==
+@startuml activity_uc10_metode
+start
+:Admin buka /admin/payment-methods;
+:Sistem ambil semua metode dari Firestore;
+:Tampilkan tabel metode (BCA, DANA, dst);
+if (Aksi?) then ([Tambah/Edit])
+  :Buka modal;
+  :Pilih kode metode + isi atas nama & nomor rekening;
+  :Simpan (add/update) dengan trim & lowercase;
+elseif ([Hapus])
+  :Tampilkan dialog konfirmasi hapus;
+  if (Admin konfirmasi?) then ([ya])
+    :deletePaymentMethod by ID;
+  endif
+endif
+:Refresh daftar metode;
+stop
+@enduml
+
+' == Activity: Menjalankan Analisis Apriori ==
+@startuml activity_uc11_apriori
+start
+:Admin buka /admin/apriori;
+:Atur slider Minimum Support & Minimum Confidence;
+:Klik "Jalankan Analisis";
+:Sistem ambil dataset dari koleksi transactions;
+if (Jumlah transaksi cukup?) then ([ya])
+  :Hitung frequent itemsets sesuai support;
+  :Bangkitkan association rules sesuai confidence;
+  :Hapus rules lama lalu simpan rules baru (batch);
+  :Tampilkan tabel Antecedent → Consequent, Support, Confidence;
+else ([tidak])
+  :Tampilkan "Belum ada data transaksi";
+endif
+stop
+@enduml

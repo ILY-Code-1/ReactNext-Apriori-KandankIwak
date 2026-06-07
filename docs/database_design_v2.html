@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<title>Desain Database Relasional – Kandank Iwak (ERD → LRS v2)</title>
+<style>
+  body { font-family: "Segoe UI", Arial, sans-serif; color:#1c1a4d; background:#f7fafc; margin:0; padding:32px; }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  h2 { font-size: 19px; border-bottom: 2px solid #cfe9f8; padding-bottom: 6px; margin-top: 36px; }
+  h3 { font-size: 16px; margin-top: 22px; color:#0a1f44; }
+  p, li { line-height: 1.65; font-size: 14.5px; }
+  table { border-collapse: collapse; width:100%; margin-top: 10px; background:#fff; }
+  th, td { border:1px solid #d6e0ea; padding:7px 10px; font-size: 13.5px; text-align:left; vertical-align: top; }
+  th { background:#0a1f44; color:#fff; }
+  tr:nth-child(even) td { background:#f4f9ff; }
+  pre.plantuml { background:#0f172a; color:#cbd5e1; padding:16px; border-radius: 8px; overflow:auto; font-size: 12.5px; line-height: 1.45; }
+  .badge { display:inline-block; background:#01a2ea; color:#fff; padding:2px 8px; border-radius:999px; font-size:11.5px; font-weight:700; margin-left:6px; }
+  .card { background:#fff; border:1px solid #dbe6f1; border-radius: 10px; padding: 18px 22px; }
+  code { font-family: Consolas, "Courier New", monospace; background:#eef5ff; padding: 1px 5px; border-radius:4px; color:#01497c; }
+</style>
+</head>
+<body>
+
+<h1>Desain Database Relasional — Kandank Iwak <span class="badge">ERD → LRS v2</span></h1>
+<p>Dokumen ini menyajikan pemodelan ulang basis data <b>Kandank Iwak</b> ke dalam paradigma <i>relational</i>: dari <b>Entity Relationship Diagram</b>, ditransformasikan menjadi <b>Logical Record Structure</b>, lalu diturunkan menjadi <b>spesifikasi tabel</b>. Seluruh entitas mengacu pada model nyata di <code>src/lib/firebase/collections.js</code> dan <code>src/lib/firebase/*.js</code>.</p>
+
+<h2>1. Entity Relationship Diagram (ERD)</h2>
+<div class="card">
+<p>Entitas utama yang teridentifikasi: <b>Customer</b> (dipisah dari Order karena identifikasinya melalui kontak WhatsApp), <b>Product</b>, <b>Order</b>, <b>OrderItem</b> (entitas relasi Order ↔ Product), <b>Address</b>, <b>PaymentMethod</b>, <b>Transaction</b>, <b>TransactionItem</b> (entitas relasi Transaction ↔ Product), dan <b>AssociationRule</b>.</p>
+<p>Relasi utama: satu Customer dapat melakukan banyak Order; satu Order memiliki banyak OrderItem yang masing-masing merujuk satu Product; satu Order menghasilkan satu Transaction; satu PaymentMethod dipakai banyak Order; satu Address terikat ke satu Order (alamat snapshot saat checkout).</p>
+</div>
+
+<pre class="plantuml">
+@startuml
+skinparam linetype ortho
+
+entity "Customer" as Customer {
+  * PK customer_id : INT
+  --
+  + name : VARCHAR(120)
+  + contact_wa : VARCHAR(15)
+}
+
+entity "Product" as Product {
+  * PK product_id : VARCHAR(28)
+  --
+  + name : VARCHAR(150)
+  + category : VARCHAR(40)
+  + price : DECIMAL(12,2)
+  + stock : INT
+  + unit : VARCHAR(30)
+  + description : TEXT
+  + image_url : VARCHAR(500)
+  + active : BOOLEAN
+  + created_at : TIMESTAMP
+}
+
+entity "PaymentMethod" as PaymentMethod {
+  * PK payment_method_id : INT
+  --
+  + code : VARCHAR(20)
+  + account_name : VARCHAR(120)
+  + account_number : VARCHAR(40)
+  + created_at : TIMESTAMP
+}
+
+entity "Address" as Address {
+  * PK address_id : INT
+  --
+  &lt;&lt;FK&gt;&gt; order_code : VARCHAR(20)
+  + kecamatan_code : VARCHAR(10)
+  + kecamatan_name : VARCHAR(80)
+  + kelurahan_code : VARCHAR(10)
+  + kelurahan_name : VARCHAR(80)
+  + detail : VARCHAR(255)
+}
+
+entity "Order" as Order {
+  * PK order_code : VARCHAR(20)
+  --
+  &lt;&lt;FK&gt;&gt; customer_id : INT
+  &lt;&lt;FK&gt;&gt; payment_method_id : INT
+  + total : DECIMAL(12,2)
+  + status : ENUM
+  + notes : VARCHAR(255)
+  + created_at : TIMESTAMP
+}
+
+entity "OrderItem" as OrderItem {
+  * PK order_item_id : INT
+  --
+  &lt;&lt;FK&gt;&gt; order_code : VARCHAR(20)
+  &lt;&lt;FK&gt;&gt; product_id : VARCHAR(28)
+  + name_snapshot : VARCHAR(150)
+  + price_snapshot : DECIMAL(12,2)
+  + qty : INT
+}
+
+entity "Transaction" as Transaction {
+  * PK transaction_id : VARCHAR(28)
+  --
+  &lt;&lt;FK&gt;&gt; order_code : VARCHAR(20)
+  + source : VARCHAR(20)
+  + date : TIMESTAMP
+}
+
+entity "TransactionItem" as TransactionItem {
+  * PK transaction_item_id : INT
+  --
+  &lt;&lt;FK&gt;&gt; transaction_id : VARCHAR(28)
+  &lt;&lt;FK&gt;&gt; product_id : VARCHAR(28)
+}
+
+entity "AssociationRule" as Rule {
+  * PK rule_id : INT
+  --
+  + support : DECIMAL(5,4)
+  + confidence : DECIMAL(5,4)
+  + min_support : DECIMAL(5,4)
+  + min_confidence : DECIMAL(5,4)
+  + calculated_at : TIMESTAMP
+}
+
+entity "RuleAntecedent" as RA {
+  * PK ra_id : INT
+  --
+  &lt;&lt;FK&gt;&gt; rule_id : INT
+  &lt;&lt;FK&gt;&gt; product_id : VARCHAR(28)
+}
+
+entity "RuleConsequent" as RC {
+  * PK rc_id : INT
+  --
+  &lt;&lt;FK&gt;&gt; rule_id : INT
+  &lt;&lt;FK&gt;&gt; product_id : VARCHAR(28)
+}
+
+entity "Admin" as Admin {
+  * PK uid : VARCHAR(40)
+  --
+  + email : VARCHAR(120)
+}
+
+Customer ||--o{ Order : "memesan"
+Order ||--|| Address : "dikirim ke"
+Order ||--|{ OrderItem : "berisi"
+Product ||--o{ OrderItem : "dijual sebagai"
+PaymentMethod ||--o{ Order : "dipakai oleh"
+Order ||--|| Transaction : "menghasilkan"
+Transaction ||--|{ TransactionItem : "memuat"
+Product ||--o{ TransactionItem : "menjadi item"
+Rule ||--|{ RA : "antecedent berisi"
+Rule ||--|{ RC : "consequent berisi"
+Product ||--o{ RA : "muncul di antecedent"
+Product ||--o{ RC : "muncul di consequent"
+Admin ||--o{ Order : "mengubah status"
+Admin ||--o{ Product : "mengelola"
+Admin ||--o{ PaymentMethod : "mengelola"
+Admin ||--o{ Rule : "menjalankan analisis"
+@enduml
+</pre>
+
+<h2>2. Transformasi ERD ke LRS</h2>
+<div class="card">
+<p>Keputusan transformasi:</p>
+<ol>
+  <li><b>Order ↔ Address (1:1, partisipasi total di sisi Address)</b> → field address di-embed di tabel <code>address</code> dengan FK <code>order_code</code>. Bisa digabung ke Order, namun dipisah agar normalisasi 3NF.</li>
+  <li><b>Order ↔ OrderItem (1:N)</b> → FK <code>order_code</code> ditempatkan di sisi <i>many</i> (<code>order_item</code>). Snapshot <code>name_snapshot</code> dan <code>price_snapshot</code> tetap dibawa supaya pesanan lama tidak terpengaruh perubahan produk.</li>
+  <li><b>Product ↔ OrderItem (1:N)</b> → FK <code>product_id</code> ditambahkan ke <code>order_item</code>.</li>
+  <li><b>Order ↔ Transaction (1:1)</b> → FK <code>order_code</code> di tabel <code>transaction</code>. Partisipasi total terjadi karena setiap checkout selalu menghasilkan transaction (lihat <code>addOrderAndTransaction</code>).</li>
+  <li><b>Transaction ↔ Product (M:N)</b> → tabel junction <code>transaction_item</code> dengan PK gabungan (transaction_id, product_id) atau surrogate <code>transaction_item_id</code>.</li>
+  <li><b>AssociationRule ↔ Product (M:N pada antecedent &amp; consequent)</b> → karena rule memiliki <b>dua peran berbeda</b> (antecedent vs consequent), dibuat dua tabel junction terpisah: <code>rule_antecedent</code> dan <code>rule_consequent</code>. Atribut <code>parameters</code> di Firestore (minSupport, minConfidence) di-flatten menjadi kolom <code>min_support</code> dan <code>min_confidence</code> di tabel <code>association_rule</code>.</li>
+  <li><b>Customer</b> dimekarkan dari embedded field <code>customer_name</code> &amp; <code>contact</code> di Firestore menjadi entitas tersendiri sehingga pelanggan berulang bisa diidentifikasi dari <code>contact_wa</code>.</li>
+  <li><b>PaymentMethod ↔ Order (1:N)</b> → FK <code>payment_method_id</code> di sisi Order. Snapshot embedded di Firestore tidak dibawa karena di model relasional sudah ternormalisasi.</li>
+</ol>
+</div>
+
+<pre class="plantuml">
+@startuml
+skinparam classAttributeIconSize 0
+hide circle
+
+class customer &lt;&lt;Table&gt;&gt; {
+  + PK customer_id : INT
+  - name : VARCHAR(120)
+  - contact_wa : VARCHAR(15)
+}
+
+class product &lt;&lt;Table&gt;&gt; {
+  + PK product_id : VARCHAR(28)
+  - name : VARCHAR(150)
+  - category : VARCHAR(40)
+  - price : DECIMAL(12,2)
+  - stock : INT
+  - unit : VARCHAR(30)
+  - description : TEXT
+  - image_url : VARCHAR(500)
+  - active : BOOLEAN
+  - created_at : TIMESTAMP
+}
+
+class payment_method &lt;&lt;Table&gt;&gt; {
+  + PK payment_method_id : INT
+  - code : VARCHAR(20)
+  - account_name : VARCHAR(120)
+  - account_number : VARCHAR(40)
+  - created_at : TIMESTAMP
+}
+
+class "order" &lt;&lt;Table&gt;&gt; as orderTbl {
+  + PK order_code : VARCHAR(20)
+  # FK customer_id : INT
+  # FK payment_method_id : INT
+  - total : DECIMAL(12,2)
+  - status : ENUM
+  - notes : VARCHAR(255)
+  - created_at : TIMESTAMP
+}
+
+class address &lt;&lt;Table&gt;&gt; {
+  + PK address_id : INT
+  # FK order_code : VARCHAR(20)
+  - kecamatan_code : VARCHAR(10)
+  - kecamatan_name : VARCHAR(80)
+  - kelurahan_code : VARCHAR(10)
+  - kelurahan_name : VARCHAR(80)
+  - detail : VARCHAR(255)
+}
+
+class order_item &lt;&lt;Table&gt;&gt; {
+  + PK order_item_id : INT
+  # FK order_code : VARCHAR(20)
+  # FK product_id : VARCHAR(28)
+  - name_snapshot : VARCHAR(150)
+  - price_snapshot : DECIMAL(12,2)
+  - qty : INT
+}
+
+class "transaction" &lt;&lt;Table&gt;&gt; as txnTbl {
+  + PK transaction_id : VARCHAR(28)
+  # FK order_code : VARCHAR(20)
+  - source : VARCHAR(20)
+  - date : TIMESTAMP
+}
+
+class transaction_item &lt;&lt;Table&gt;&gt; {
+  + PK transaction_item_id : INT
+  # FK transaction_id : VARCHAR(28)
+  # FK product_id : VARCHAR(28)
+}
+
+class association_rule &lt;&lt;Table&gt;&gt; {
+  + PK rule_id : INT
+  - support : DECIMAL(5,4)
+  - confidence : DECIMAL(5,4)
+  - min_support : DECIMAL(5,4)
+  - min_confidence : DECIMAL(5,4)
+  - calculated_at : TIMESTAMP
+}
+
+class rule_antecedent &lt;&lt;Table&gt;&gt; {
+  + PK ra_id : INT
+  # FK rule_id : INT
+  # FK product_id : VARCHAR(28)
+}
+
+class rule_consequent &lt;&lt;Table&gt;&gt; {
+  + PK rc_id : INT
+  # FK rule_id : INT
+  # FK product_id : VARCHAR(28)
+}
+
+class admin &lt;&lt;Table&gt;&gt; {
+  + PK uid : VARCHAR(40)
+  - email : VARCHAR(120)
+}
+
+customer "1" --> "*" orderTbl
+payment_method "1" --> "*" orderTbl
+orderTbl "1" --> "1" address
+orderTbl "1" --> "*" order_item
+product "1" --> "*" order_item
+orderTbl "1" --> "1" txnTbl
+txnTbl "1" --> "*" transaction_item
+product "1" --> "*" transaction_item
+association_rule "1" --> "*" rule_antecedent
+association_rule "1" --> "*" rule_consequent
+product "1" --> "*" rule_antecedent
+product "1" --> "*" rule_consequent
+@enduml
+</pre>
+
+<h2>3. Logical Record Structure (LRS) — Final</h2>
+<p>LRS final di bawah ini bersih dari komentar transformasi dan menampilkan kardinalitas pada panah relasi:</p>
+<pre class="plantuml">
+@startuml
+skinparam classAttributeIconSize 0
+hide circle
+
+class customer &lt;&lt;Table&gt;&gt; {
+  + PK customer_id
+  - name
+  - contact_wa
+}
+class product &lt;&lt;Table&gt;&gt; {
+  + PK product_id
+  - name
+  - category
+  - price
+  - stock
+  - unit
+  - description
+  - image_url
+  - active
+  - created_at
+}
+class payment_method &lt;&lt;Table&gt;&gt; {
+  + PK payment_method_id
+  - code
+  - account_name
+  - account_number
+  - created_at
+}
+class "order" as orderTbl &lt;&lt;Table&gt;&gt; {
+  + PK order_code
+  # FK customer_id
+  # FK payment_method_id
+  - total
+  - status
+  - notes
+  - created_at
+}
+class address &lt;&lt;Table&gt;&gt; {
+  + PK address_id
+  # FK order_code
+  - kecamatan_code
+  - kecamatan_name
+  - kelurahan_code
+  - kelurahan_name
+  - detail
+}
+class order_item &lt;&lt;Table&gt;&gt; {
+  + PK order_item_id
+  # FK order_code
+  # FK product_id
+  - name_snapshot
+  - price_snapshot
+  - qty
+}
+class "transaction" as txnTbl &lt;&lt;Table&gt;&gt; {
+  + PK transaction_id
+  # FK order_code
+  - source
+  - date
+}
+class transaction_item &lt;&lt;Table&gt;&gt; {
+  + PK transaction_item_id
+  # FK transaction_id
+  # FK product_id
+}
+class association_rule &lt;&lt;Table&gt;&gt; {
+  + PK rule_id
+  - support
+  - confidence
+  - min_support
+  - min_confidence
+  - calculated_at
+}
+class rule_antecedent &lt;&lt;Table&gt;&gt; {
+  + PK ra_id
+  # FK rule_id
+  # FK product_id
+}
+class rule_consequent &lt;&lt;Table&gt;&gt; {
+  + PK rc_id
+  # FK rule_id
+  # FK product_id
+}
+class admin &lt;&lt;Table&gt;&gt; {
+  + PK uid
+  - email
+}
+
+customer "1" --> "*" orderTbl : memesan
+payment_method "1" --> "*" orderTbl : dipakai
+orderTbl "1" --> "1" address : dialamatkan
+orderTbl "1" --> "*" order_item : berisi
+product "1" --> "*" order_item : dipesan
+orderTbl "1" --> "1" txnTbl : menghasilkan
+txnTbl "1" --> "*" transaction_item : memuat
+product "1" --> "*" transaction_item : dibeli
+association_rule "1" --> "*" rule_antecedent
+association_rule "1" --> "*" rule_consequent
+product "1" --> "*" rule_antecedent
+product "1" --> "*" rule_consequent
+@enduml
+</pre>
+
+<h2>4. Spesifikasi Basis Data</h2>
+
+<h3>Tabel: customer</h3>
+<table>
+<thead><tr><th>No</th><th>Field</th><th>Tipe</th><th>Ukuran</th><th>PK</th><th>FK</th><th>Null</th><th>Default</th><th>Deskripsi</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>customer_id</td><td>INT</td><td>—</td><td>✓</td><td>—</td><td>Not Null</td><td>auto</td><td>Surrogate key pelanggan</td></tr>
+<tr><td>2</td><td>name</td><td>VARCHAR</td><td>120</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Nama lengkap pemesan dari form checkout</td></tr>
+<tr><td>3</td><td>contact_wa</td><td>VARCHAR</td><td>15</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>No. WhatsApp lengkap (62 + 9-11 digit), unique business key</td></tr>
+</tbody>
+</table>
+
+<h3>Tabel: product</h3>
+<table>
+<thead><tr><th>No</th><th>Field</th><th>Tipe</th><th>Ukuran</th><th>PK</th><th>FK</th><th>Null</th><th>Default</th><th>Deskripsi</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>product_id</td><td>VARCHAR</td><td>28</td><td>✓</td><td>—</td><td>Not Null</td><td>—</td><td>ID produk (sama dengan Firestore docId)</td></tr>
+<tr><td>2</td><td>name</td><td>VARCHAR</td><td>150</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Nama produk (mis. "Nila Segar Hidup")</td></tr>
+<tr><td>3</td><td>category</td><td>VARCHAR</td><td>40</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Kategori: Ikan Segar / Olahan / Budidaya / Bumbu / Paket</td></tr>
+<tr><td>4</td><td>price</td><td>DECIMAL</td><td>12,2</td><td>—</td><td>—</td><td>Not Null</td><td>0</td><td>Harga satuan Rupiah</td></tr>
+<tr><td>5</td><td>stock</td><td>INT</td><td>—</td><td>—</td><td>—</td><td>Not Null</td><td>0</td><td>Stok yang tersedia</td></tr>
+<tr><td>6</td><td>unit</td><td>VARCHAR</td><td>30</td><td>—</td><td>—</td><td>Null</td><td>"per kg"</td><td>Satuan jual</td></tr>
+<tr><td>7</td><td>description</td><td>TEXT</td><td>—</td><td>—</td><td>—</td><td>Null</td><td>—</td><td>Deskripsi panjang produk</td></tr>
+<tr><td>8</td><td>image_url</td><td>VARCHAR</td><td>500</td><td>—</td><td>—</td><td>Null</td><td>—</td><td>URL gambar Cloudinary</td></tr>
+<tr><td>9</td><td>active</td><td>BOOLEAN</td><td>—</td><td>—</td><td>—</td><td>Not Null</td><td>TRUE</td><td>Toggle aktif di toko</td></tr>
+<tr><td>10</td><td>created_at</td><td>TIMESTAMP</td><td>—</td><td>—</td><td>—</td><td>Not Null</td><td>NOW()</td><td>Waktu pembuatan, indexed desc</td></tr>
+</tbody>
+</table>
+
+<h3>Tabel: payment_method</h3>
+<table>
+<thead><tr><th>No</th><th>Field</th><th>Tipe</th><th>Ukuran</th><th>PK</th><th>FK</th><th>Null</th><th>Default</th><th>Deskripsi</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>payment_method_id</td><td>INT</td><td>—</td><td>✓</td><td>—</td><td>Not Null</td><td>auto</td><td>Surrogate key metode</td></tr>
+<tr><td>2</td><td>code</td><td>VARCHAR</td><td>20</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Kode lowercase: "bca", "dana"</td></tr>
+<tr><td>3</td><td>account_name</td><td>VARCHAR</td><td>120</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Atas nama rekening / e-wallet</td></tr>
+<tr><td>4</td><td>account_number</td><td>VARCHAR</td><td>40</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Nomor rekening / e-wallet</td></tr>
+<tr><td>5</td><td>created_at</td><td>TIMESTAMP</td><td>—</td><td>—</td><td>—</td><td>Not Null</td><td>NOW()</td><td>Waktu pembuatan</td></tr>
+</tbody>
+</table>
+
+<h3>Tabel: order</h3>
+<table>
+<thead><tr><th>No</th><th>Field</th><th>Tipe</th><th>Ukuran</th><th>PK</th><th>FK</th><th>Null</th><th>Default</th><th>Deskripsi</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>order_code</td><td>VARCHAR</td><td>20</td><td>✓</td><td>—</td><td>Not Null</td><td>—</td><td>Kode pesanan KI-YYYYMMDD-XXXX</td></tr>
+<tr><td>2</td><td>customer_id</td><td>INT</td><td>—</td><td>—</td><td>customer.customer_id</td><td>Not Null</td><td>—</td><td>Pemesan</td></tr>
+<tr><td>3</td><td>payment_method_id</td><td>INT</td><td>—</td><td>—</td><td>payment_method.payment_method_id</td><td>Null</td><td>—</td><td>Metode pembayaran yang dipilih</td></tr>
+<tr><td>4</td><td>total</td><td>DECIMAL</td><td>12,2</td><td>—</td><td>—</td><td>Not Null</td><td>0</td><td>Total bayar termasuk ongkir Rp 12.000</td></tr>
+<tr><td>5</td><td>status</td><td>ENUM</td><td>—</td><td>—</td><td>—</td><td>Not Null</td><td>"ordered"</td><td>ordered / paid / shipped / completed / cancelled</td></tr>
+<tr><td>6</td><td>notes</td><td>VARCHAR</td><td>255</td><td>—</td><td>—</td><td>Null</td><td>—</td><td>Catatan pelanggan (opsional)</td></tr>
+<tr><td>7</td><td>created_at</td><td>TIMESTAMP</td><td>—</td><td>—</td><td>—</td><td>Not Null</td><td>NOW()</td><td>Waktu pembuatan, indexed desc</td></tr>
+</tbody>
+</table>
+
+<h3>Tabel: address</h3>
+<table>
+<thead><tr><th>No</th><th>Field</th><th>Tipe</th><th>Ukuran</th><th>PK</th><th>FK</th><th>Null</th><th>Default</th><th>Deskripsi</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>address_id</td><td>INT</td><td>—</td><td>✓</td><td>—</td><td>Not Null</td><td>auto</td><td>Surrogate key alamat</td></tr>
+<tr><td>2</td><td>order_code</td><td>VARCHAR</td><td>20</td><td>—</td><td>order.order_code</td><td>Not Null</td><td>—</td><td>Pesanan pemilik alamat</td></tr>
+<tr><td>3</td><td>kecamatan_code</td><td>VARCHAR</td><td>10</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Kode kecamatan dari API wilayah</td></tr>
+<tr><td>4</td><td>kecamatan_name</td><td>VARCHAR</td><td>80</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Nama kecamatan (Kab. Tangerang)</td></tr>
+<tr><td>5</td><td>kelurahan_code</td><td>VARCHAR</td><td>10</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Kode kelurahan</td></tr>
+<tr><td>6</td><td>kelurahan_name</td><td>VARCHAR</td><td>80</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Nama kelurahan</td></tr>
+<tr><td>7</td><td>detail</td><td>VARCHAR</td><td>255</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Detail alamat (jalan, RT/RW, patokan)</td></tr>
+</tbody>
+</table>
+
+<h3>Tabel: order_item</h3>
+<table>
+<thead><tr><th>No</th><th>Field</th><th>Tipe</th><th>Ukuran</th><th>PK</th><th>FK</th><th>Null</th><th>Default</th><th>Deskripsi</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>order_item_id</td><td>INT</td><td>—</td><td>✓</td><td>—</td><td>Not Null</td><td>auto</td><td>Surrogate key item</td></tr>
+<tr><td>2</td><td>order_code</td><td>VARCHAR</td><td>20</td><td>—</td><td>order.order_code</td><td>Not Null</td><td>—</td><td>Pesanan pemilik item</td></tr>
+<tr><td>3</td><td>product_id</td><td>VARCHAR</td><td>28</td><td>—</td><td>product.product_id</td><td>Not Null</td><td>—</td><td>Produk yang dibeli</td></tr>
+<tr><td>4</td><td>name_snapshot</td><td>VARCHAR</td><td>150</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Snapshot nama saat checkout</td></tr>
+<tr><td>5</td><td>price_snapshot</td><td>DECIMAL</td><td>12,2</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Snapshot harga saat checkout</td></tr>
+<tr><td>6</td><td>qty</td><td>INT</td><td>—</td><td>—</td><td>—</td><td>Not Null</td><td>1</td><td>Jumlah unit dibeli</td></tr>
+</tbody>
+</table>
+
+<h3>Tabel: transaction</h3>
+<table>
+<thead><tr><th>No</th><th>Field</th><th>Tipe</th><th>Ukuran</th><th>PK</th><th>FK</th><th>Null</th><th>Default</th><th>Deskripsi</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>transaction_id</td><td>VARCHAR</td><td>28</td><td>✓</td><td>—</td><td>Not Null</td><td>—</td><td>ID transaksi (sama dengan Firestore docId)</td></tr>
+<tr><td>2</td><td>order_code</td><td>VARCHAR</td><td>20</td><td>—</td><td>order.order_code</td><td>Not Null</td><td>—</td><td>Pesanan asal transaksi</td></tr>
+<tr><td>3</td><td>source</td><td>VARCHAR</td><td>20</td><td>—</td><td>—</td><td>Not Null</td><td>"checkout"</td><td>"checkout" atau "seed"</td></tr>
+<tr><td>4</td><td>date</td><td>TIMESTAMP</td><td>—</td><td>—</td><td>—</td><td>Not Null</td><td>NOW()</td><td>Waktu pencatatan transaksi</td></tr>
+</tbody>
+</table>
+
+<h3>Tabel: transaction_item</h3>
+<table>
+<thead><tr><th>No</th><th>Field</th><th>Tipe</th><th>Ukuran</th><th>PK</th><th>FK</th><th>Null</th><th>Default</th><th>Deskripsi</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>transaction_item_id</td><td>INT</td><td>—</td><td>✓</td><td>—</td><td>Not Null</td><td>auto</td><td>Surrogate key item transaksi</td></tr>
+<tr><td>2</td><td>transaction_id</td><td>VARCHAR</td><td>28</td><td>—</td><td>transaction.transaction_id</td><td>Not Null</td><td>—</td><td>Transaksi induk</td></tr>
+<tr><td>3</td><td>product_id</td><td>VARCHAR</td><td>28</td><td>—</td><td>product.product_id</td><td>Not Null</td><td>—</td><td>Produk anggota transaksi (input Apriori)</td></tr>
+</tbody>
+</table>
+
+<h3>Tabel: association_rule</h3>
+<table>
+<thead><tr><th>No</th><th>Field</th><th>Tipe</th><th>Ukuran</th><th>PK</th><th>FK</th><th>Null</th><th>Default</th><th>Deskripsi</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>rule_id</td><td>INT</td><td>—</td><td>✓</td><td>—</td><td>Not Null</td><td>auto</td><td>Surrogate key rule</td></tr>
+<tr><td>2</td><td>support</td><td>DECIMAL</td><td>5,4</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Nilai support rule (0..1)</td></tr>
+<tr><td>3</td><td>confidence</td><td>DECIMAL</td><td>5,4</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Nilai confidence rule (0..1)</td></tr>
+<tr><td>4</td><td>min_support</td><td>DECIMAL</td><td>5,4</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Parameter min support saat dihitung</td></tr>
+<tr><td>5</td><td>min_confidence</td><td>DECIMAL</td><td>5,4</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Parameter min confidence saat dihitung</td></tr>
+<tr><td>6</td><td>calculated_at</td><td>TIMESTAMP</td><td>—</td><td>—</td><td>—</td><td>Not Null</td><td>NOW()</td><td>Waktu eksekusi analisis</td></tr>
+</tbody>
+</table>
+
+<h3>Tabel: rule_antecedent</h3>
+<table>
+<thead><tr><th>No</th><th>Field</th><th>Tipe</th><th>Ukuran</th><th>PK</th><th>FK</th><th>Null</th><th>Default</th><th>Deskripsi</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>ra_id</td><td>INT</td><td>—</td><td>✓</td><td>—</td><td>Not Null</td><td>auto</td><td>Surrogate key</td></tr>
+<tr><td>2</td><td>rule_id</td><td>INT</td><td>—</td><td>—</td><td>association_rule.rule_id</td><td>Not Null</td><td>—</td><td>Rule pemilik</td></tr>
+<tr><td>3</td><td>product_id</td><td>VARCHAR</td><td>28</td><td>—</td><td>product.product_id</td><td>Not Null</td><td>—</td><td>Produk sisi antecedent</td></tr>
+</tbody>
+</table>
+
+<h3>Tabel: rule_consequent</h3>
+<table>
+<thead><tr><th>No</th><th>Field</th><th>Tipe</th><th>Ukuran</th><th>PK</th><th>FK</th><th>Null</th><th>Default</th><th>Deskripsi</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>rc_id</td><td>INT</td><td>—</td><td>✓</td><td>—</td><td>Not Null</td><td>auto</td><td>Surrogate key</td></tr>
+<tr><td>2</td><td>rule_id</td><td>INT</td><td>—</td><td>—</td><td>association_rule.rule_id</td><td>Not Null</td><td>—</td><td>Rule pemilik</td></tr>
+<tr><td>3</td><td>product_id</td><td>VARCHAR</td><td>28</td><td>—</td><td>product.product_id</td><td>Not Null</td><td>—</td><td>Produk sisi consequent</td></tr>
+</tbody>
+</table>
+
+<h3>Tabel: admin</h3>
+<table>
+<thead><tr><th>No</th><th>Field</th><th>Tipe</th><th>Ukuran</th><th>PK</th><th>FK</th><th>Null</th><th>Default</th><th>Deskripsi</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>uid</td><td>VARCHAR</td><td>40</td><td>✓</td><td>—</td><td>Not Null</td><td>—</td><td>Firebase Auth UID</td></tr>
+<tr><td>2</td><td>email</td><td>VARCHAR</td><td>120</td><td>—</td><td>—</td><td>Not Null</td><td>—</td><td>Email admin (unique)</td></tr>
+</tbody>
+</table>
+
+</body>
+</html>

@@ -1,0 +1,102 @@
+@startuml class_kandank_iwak
+skinparam classAttributeIconSize 0
+hide circle
+
+class Product {
+  - id : string
+  - name : string
+  - category : string
+  - price : number
+  - stock : number
+  - unit : string
+  - description : string
+  - image_url : string
+  - active : boolean
+  - created_at : Timestamp
+  + isAvailable() : boolean
+  + reduceStock(qty : number) : void
+}
+
+class OrderItem {
+  - product_id : string
+  - name : string
+  - price : number
+  - qty : number
+  + subtotal() : number
+}
+
+class Order {
+  - code : string
+  - customer_name : string
+  - contact : string
+  - total : number
+  - status : OrderStatus
+  - notes : string
+  - created_at : Timestamp
+  + advanceStatus() : void
+  + cancel() : void
+  + isFinal() : boolean
+}
+
+enum OrderStatus {
+  ORDERED
+  PAID
+  SHIPPED
+  COMPLETED
+  CANCELLED
+}
+
+class Address {
+  - kecamatan_code : string
+  - kecamatan_name : string
+  - kelurahan_code : string
+  - kelurahan_name : string
+  - detail : string
+}
+
+class PaymentMethod {
+  - id : string
+  - payment_method : string
+  - account_name : string
+  - account_number : string
+  - created_at : Timestamp
+}
+
+class Transaction {
+  - id : string
+  - order_code : string
+  - items : string[]
+  - source : string
+  - date : Timestamp
+}
+
+class AssociationRule {
+  - id : string
+  - antecedent : string[]
+  - consequent : string[]
+  - support : number
+  - confidence : number
+  - calculated_at : Timestamp
+  + isStrong(minConf : number) : boolean
+}
+
+class Admin {
+  - uid : string
+  - email : string
+}
+
+Order "1" *-- "1..*" OrderItem : composition
+Order "1" o-- "0..1" Address : aggregation
+Order "1" o-- "0..1" PaymentMethod : aggregation
+Order "1" -- "1" OrderStatus : status
+
+OrderItem "0..*" --> "1" Product : refers to
+Transaction "1" --> "1" Order : derived from
+Transaction "0..*" --> "1..*" Product : item references
+
+AssociationRule "0..*" ..> "1..*" Product : refers to
+Admin "1" -- "*" Order : manages
+Admin "1" -- "*" Product : manages
+Admin "1" -- "*" PaymentMethod : manages
+
+@enduml

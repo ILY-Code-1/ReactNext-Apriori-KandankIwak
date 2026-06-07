@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<title>Desain Database NoSQL – Kandank Iwak (Firestore v1)</title>
+<style>
+  body { font-family: "Segoe UI", Arial, sans-serif; color:#1c1a4d; background:#f7fafc; margin:0; padding:32px; }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  h2 { font-size: 19px; border-bottom: 2px solid #cfe9f8; padding-bottom: 6px; margin-top: 36px; }
+  h3 { font-size: 16px; margin-top: 22px; }
+  p, li { line-height: 1.6; font-size: 14.5px; }
+  table { border-collapse: collapse; width:100%; margin-top: 12px; background:#fff; }
+  th, td { border:1px solid #d6e0ea; padding:8px 10px; font-size: 13.5px; text-align:left; vertical-align: top; }
+  th { background:#0a1f44; color:#fff; }
+  tr:nth-child(even) td { background:#f4f9ff; }
+  pre.plantuml { background:#0f172a; color:#cbd5e1; padding:16px; border-radius: 8px; overflow:auto; font-size: 13px; line-height: 1.45; }
+  ul.tree { list-style: none; padding-left: 18px; border-left: 2px dashed #b6ddf2; }
+  ul.tree li { padding: 6px 0; }
+  code, .mono { font-family: Consolas, "Courier New", monospace; background:#eef5ff; padding: 1px 5px; border-radius:4px; color:#01497c; }
+  .badge { display:inline-block; background:#01a2ea; color:#fff; padding:2px 8px; border-radius:999px; font-size:11.5px; font-weight:700; margin-left:6px; }
+  .card { background:#fff; border:1px solid #dbe6f1; border-radius: 10px; padding: 18px 22px; }
+</style>
+</head>
+<body>
+
+<h1>Desain Database NoSQL — Kandank Iwak <span class="badge">Firestore v1</span></h1>
+<p>Dokumen ini mendeskripsikan struktur basis data Firebase Firestore yang digunakan oleh aplikasi <b>Kandank Iwak</b> — toko ikan nila segar dengan fitur dashboard admin dan analisis Apriori untuk widget <i>"Sering Dibeli Bersama"</i>.</p>
+
+<h2>1. Strategi Pemodelan NoSQL</h2>
+<div class="card">
+<p>Aplikasi ini menggunakan <b>kombinasi Embedding dan Referencing</b> sesuai karakter setiap koleksi:</p>
+<ul>
+  <li><b>Embedding</b> dipakai pada koleksi <code>orders</code> untuk field <code>items</code>, <code>address</code>, dan <code>payment_method</code>. Snapshot harga & nama produk disimpan langsung di dalam dokumen pesanan agar riwayat tetap akurat sekalipun produk asli diubah/dinonaktifkan di kemudian hari (lihat <code>src/lib/firebase/orders.js</code> fungsi <code>addOrderAndTransaction</code>).</li>
+  <li><b>Referencing</b> dipakai pada koleksi <code>transactions</code>: field <code>items</code> hanya menyimpan daftar <code>product_id</code> (string array). Bentuk ini sengaja minimalis karena <i>transactions</i> menjadi sumber data algoritma Apriori — hanya butuh keanggotaan item per transaksi, bukan harga.</li>
+  <li><b>Document ID khusus</b> dipakai pada <code>orders</code>: ID dokumen sama dengan kode pesanan <code>KI-YYYYMMDD-XXXX</code> sehingga pelanggan bisa <code>getDoc</code> langsung saat melacak pesanan tanpa query.</li>
+  <li><b>Koleksi terpisah</b> (<code>products</code>, <code>payment_methods</code>, <code>rules</code>) untuk entitas yang sering dibaca independen oleh halaman toko & dashboard.</li>
+</ul>
+<p>Pilihan ini sengaja menghindari sub-koleksi karena seluruh akses transaksional (order + transaction) dijamin atomik melalui <code>writeBatch</code> Firestore.</p>
+</div>
+
+<h2>2. Struktur Koleksi</h2>
+<p>Tree berikut merefleksikan koleksi yang dideklarasikan di <code>src/lib/firebase/collections.js</code>:</p>
+<ul class="tree">
+  <li>📁 <b>products</b> <span class="mono">(doc id: auto)</span>
+    <ul class="tree">
+      <li>📄 <span class="mono">QkW0aB2xz3</span> → name, category, price, stock, unit, description, image_url, active, created_at</li>
+    </ul>
+  </li>
+  <li>📁 <b>orders</b> <span class="mono">(doc id: kode pesanan)</span>
+    <ul class="tree">
+      <li>📄 <span class="mono">KI-20260606-AB12</span> → customer_name, contact, total, status, notes, created_at
+        <ul class="tree">
+          <li>🧩 <b>items[]</b> (embedded): product_id, name, price, qty</li>
+          <li>🧩 <b>address</b> (embedded): kecamatan_code, kecamatan_name, kelurahan_code, kelurahan_name, detail</li>
+          <li>🧩 <b>payment_method</b> (embedded snapshot): id, payment_method, account_name, account_number</li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+  <li>📁 <b>transactions</b> <span class="mono">(doc id: auto)</span>
+    <ul class="tree">
+      <li>📄 <span class="mono">7iV3...</span> → order_code (ref orders), items: string[], source, date</li>
+    </ul>
+  </li>
+  <li>📁 <b>payment_methods</b> <span class="mono">(doc id: auto)</span>
+    <ul class="tree">
+      <li>📄 <span class="mono">pmBcaXyz</span> → payment_method ("bca"), account_name, account_number, created_at</li>
+    </ul>
+  </li>
+  <li>📁 <b>rules</b> <span class="mono">(doc id: auto, di-replace saat analisis)</span>
+    <ul class="tree">
+      <li>📄 <span class="mono">rule_001</span> → antecedent[], consequent[], support, confidence, parameters, calculated_at</li>
+    </ul>
+  </li>
+  <li>📁 <b>admins</b> <span class="mono">(opsional)</span>
+    <ul class="tree">
+      <li>📄 <span class="mono">uid Firebase Auth</span> → email, role</li>
+    </ul>
+  </li>
+</ul>
+
+<h2>3. Struktur Logis (UML Object Diagram)</h2>
+<p>Contoh dokumen nyata dari masing-masing koleksi beserta link referensinya:</p>
+<pre class="plantuml">
+@startuml
+object "p1 : products" as p1 {
+  id = "QkW0aB2xz3"
+  name = "Nila Segar Hidup"
+  category = "Ikan Segar"
+  price = 35000
+  stock = 80
+  unit = "per kg"
+  active = true
+}
+
+object "p2 : products" as p2 {
+  id = "QkW0aB2xz4"
+  name = "Bumbu Pecak Khas"
+  category = "Bumbu"
+  price = 12000
+  stock = 40
+  active = true
+}
+
+object "pm1 : payment_methods" as pm1 {
+  id = "pmBcaXyz"
+  payment_method = "bca"
+  account_name = "Anwar Saputra"
+  account_number = "1234567890"
+}
+
+object "o1 : orders" as o1 {
+  code = "KI-20260606-AB12"
+  customer_name = "Budi Santoso"
+  contact = "628123456789"
+  total = 82000
+  status = "ordered"
+  notes = "Antar setelah jam 4 sore"
+  items = [ { product_id="QkW0aB2xz3", name="Nila Segar Hidup", price=35000, qty=2 },
+            { product_id="QkW0aB2xz4", name="Bumbu Pecak Khas", price=12000, qty=1 } ]
+  address = { kecamatan_name="Cikupa", kelurahan_name="Pasirjaya", detail="Jl. Mawar 12" }
+  payment_method = { payment_method="bca", account_number="1234567890" }
+}
+
+object "t1 : transactions" as t1 {
+  id = "7iV3aBcDeF"
+  order_code = "KI-20260606-AB12"
+  items = ["QkW0aB2xz3", "QkW0aB2xz4"]
+  source = "checkout"
+}
+
+object "r1 : rules" as r1 {
+  antecedent = ["QkW0aB2xz3"]
+  consequent = ["QkW0aB2xz4"]
+  support = 0.18
+  confidence = 0.62
+  parameters = { minSupport=0.10, minConfidence=0.30 }
+}
+
+o1 --> p1 : items[0].product_id
+o1 --> p2 : items[1].product_id
+o1 --> pm1 : payment_method.id (snapshot)
+t1 --> o1 : order_code
+t1 --> p1 : items[0]
+t1 --> p2 : items[1]
+r1 --> p1
+r1 --> p2
+@enduml
+</pre>
+
+<h2>4. Spesifikasi Basis Data</h2>
+<p>Daftar lengkap field seluruh koleksi (sumber: <code>src/lib/firebase/*.js</code>):</p>
+<table>
+  <thead>
+    <tr><th>No</th><th>Nama Field</th><th>Tipe Data</th><th>Koleksi</th><th>Deskripsi</th><th>Constraint / Index</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>id (docId)</td><td>string</td><td>products</td><td>ID auto-generate Firestore</td><td>PK</td></tr>
+    <tr><td>2</td><td>name</td><td>string</td><td>products</td><td>Nama produk yang tampil di katalog (mis. "Nila Segar Hidup")</td><td>required</td></tr>
+    <tr><td>3</td><td>category</td><td>string</td><td>products</td><td>Kategori: Ikan Segar / Olahan / Budidaya / Bumbu / Paket</td><td>required</td></tr>
+    <tr><td>4</td><td>price</td><td>number</td><td>products</td><td>Harga satuan dalam Rupiah</td><td>required, ≥ 0</td></tr>
+    <tr><td>5</td><td>stock</td><td>number</td><td>products</td><td>Sisa stok yang tersedia</td><td>≥ 0</td></tr>
+    <tr><td>6</td><td>unit</td><td>string</td><td>products</td><td>Satuan jual (mis. "per kg", "per pack")</td><td>—</td></tr>
+    <tr><td>7</td><td>description</td><td>string</td><td>products</td><td>Deskripsi produk untuk halaman detail</td><td>—</td></tr>
+    <tr><td>8</td><td>image_url</td><td>string</td><td>products</td><td>URL gambar hasil upload Cloudinary</td><td>—</td></tr>
+    <tr><td>9</td><td>active</td><td>boolean</td><td>products</td><td>Toggle aktif/nonaktif. Yang nonaktif tidak tampil di toko</td><td>default true</td></tr>
+    <tr><td>10</td><td>created_at</td><td>Timestamp</td><td>products</td><td>Waktu pembuatan, dipakai untuk orderBy desc</td><td>indexed</td></tr>
+
+    <tr><td>11</td><td>code (docId)</td><td>string</td><td>orders</td><td>Kode pesanan format KI-YYYYMMDD-XXXX</td><td>PK, unik</td></tr>
+    <tr><td>12</td><td>customer_name</td><td>string</td><td>orders</td><td>Nama pemesan</td><td>required</td></tr>
+    <tr><td>13</td><td>contact</td><td>string</td><td>orders</td><td>Nomor WhatsApp lengkap dengan kode 62</td><td>required, regex 62 + 9-11 digit</td></tr>
+    <tr><td>14</td><td>total</td><td>number</td><td>orders</td><td>Total bayar = subtotal + ongkir (Rp 12.000 flat)</td><td>required</td></tr>
+    <tr><td>15</td><td>status</td><td>string</td><td>orders</td><td>ordered → paid → shipped → completed atau cancelled</td><td>enum, default "ordered"</td></tr>
+    <tr><td>16</td><td>notes</td><td>string</td><td>orders</td><td>Catatan pelanggan (opsional)</td><td>—</td></tr>
+    <tr><td>17</td><td>items[]</td><td>array&lt;object&gt;</td><td>orders</td><td>Embedded snapshot item: product_id, name, price, qty</td><td>required</td></tr>
+    <tr><td>18</td><td>address</td><td>object</td><td>orders</td><td>Embedded alamat: kecamatan, kelurahan (Kab. Tangerang), detail</td><td>required</td></tr>
+    <tr><td>19</td><td>payment_method</td><td>object</td><td>orders</td><td>Embedded snapshot metode (id, kode, atas nama, nomor)</td><td>nullable</td></tr>
+    <tr><td>20</td><td>created_at</td><td>Timestamp</td><td>orders</td><td>Timestamp pembuatan</td><td>indexed (desc)</td></tr>
+
+    <tr><td>21</td><td>id (docId)</td><td>string</td><td>transactions</td><td>ID auto Firestore</td><td>PK</td></tr>
+    <tr><td>22</td><td>order_code</td><td>string</td><td>transactions</td><td>Referensi ke orders.code</td><td>FK → orders.code</td></tr>
+    <tr><td>23</td><td>items[]</td><td>array&lt;string&gt;</td><td>transactions</td><td>Daftar product_id (input Apriori)</td><td>required</td></tr>
+    <tr><td>24</td><td>source</td><td>string</td><td>transactions</td><td>"checkout" atau "seed"</td><td>enum</td></tr>
+    <tr><td>25</td><td>date</td><td>Timestamp</td><td>transactions</td><td>Waktu transaksi tercatat</td><td>indexed (desc)</td></tr>
+
+    <tr><td>26</td><td>id (docId)</td><td>string</td><td>payment_methods</td><td>ID auto Firestore</td><td>PK</td></tr>
+    <tr><td>27</td><td>payment_method</td><td>string</td><td>payment_methods</td><td>Kode metode lowercase: "bca", "dana"</td><td>required, trimmed</td></tr>
+    <tr><td>28</td><td>account_name</td><td>string</td><td>payment_methods</td><td>Nama pemilik rekening / e-wallet</td><td>required</td></tr>
+    <tr><td>29</td><td>account_number</td><td>string</td><td>payment_methods</td><td>Nomor rekening atau e-wallet</td><td>required</td></tr>
+    <tr><td>30</td><td>created_at</td><td>Timestamp</td><td>payment_methods</td><td>Waktu pembuatan</td><td>indexed (asc)</td></tr>
+
+    <tr><td>31</td><td>id (docId)</td><td>string</td><td>rules</td><td>ID auto, seluruh koleksi di-replace setiap analisis baru</td><td>PK</td></tr>
+    <tr><td>32</td><td>antecedent[]</td><td>array&lt;string&gt;</td><td>rules</td><td>Daftar product_id sisi "jika"</td><td>required</td></tr>
+    <tr><td>33</td><td>consequent[]</td><td>array&lt;string&gt;</td><td>rules</td><td>Daftar product_id sisi "maka"</td><td>required</td></tr>
+    <tr><td>34</td><td>support</td><td>number</td><td>rules</td><td>Nilai support hasil hitung Apriori (0..1)</td><td>required</td></tr>
+    <tr><td>35</td><td>confidence</td><td>number</td><td>rules</td><td>Nilai confidence (0..1)</td><td>required, indexed desc</td></tr>
+    <tr><td>36</td><td>parameters</td><td>object</td><td>rules</td><td>Snapshot {minSupport, minConfidence} yang dipakai</td><td>—</td></tr>
+    <tr><td>37</td><td>calculated_at</td><td>Timestamp</td><td>rules</td><td>Waktu eksekusi analisis</td><td>—</td></tr>
+
+    <tr><td>38</td><td>uid (docId)</td><td>string</td><td>admins</td><td>Firebase Auth UID</td><td>PK</td></tr>
+    <tr><td>39</td><td>email</td><td>string</td><td>admins</td><td>Email admin yang berhak akses dashboard</td><td>unique</td></tr>
+  </tbody>
+</table>
+
+</body>
+</html>

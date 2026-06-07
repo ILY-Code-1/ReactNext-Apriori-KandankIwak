@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<title>User Acceptance Testing – Kandank Iwak</title>
+<style>
+  body { font-family: "Segoe UI", Arial, sans-serif; color:#1c1a4d; background:#f7fafc; margin:0; padding:32px; }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  p { line-height: 1.6; font-size: 14.5px; }
+  table { border-collapse: collapse; width:100%; margin-top: 16px; background:#fff; }
+  th, td { border:1px solid #d6e0ea; padding:8px 10px; font-size: 13px; vertical-align: top; text-align:left; }
+  th { background:#0a1f44; color:#fff; }
+  tr:nth-child(even) td { background:#f4f9ff; }
+  .pass { color:#0a8a4d; font-weight:700; }
+  .fail { color:#b9281f; font-weight:700; }
+</style>
+</head>
+<body>
+
+<h1>User Acceptance Testing — Kandank Iwak</h1>
+<p>UAT berikut dirancang dari sudut pandang pengguna akhir: <b>Pelanggan</b> (publik) dan <b>Admin/Pemilik</b>. Setiap use case utama memiliki minimal satu skenario pengujian.</p>
+
+<table>
+<thead>
+<tr>
+  <th>No</th>
+  <th>Skenario Pengujian</th>
+  <th>Role</th>
+  <th>Fitur yang Diuji</th>
+  <th>Langkah Pengujian</th>
+  <th>Ekspektasi Hasil</th>
+  <th>Status</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+  <td>1</td>
+  <td>Pelanggan ingin menemukan nila segar di bawah Rp 40.000</td>
+  <td>Pelanggan</td>
+  <td>Melihat Katalog Produk</td>
+  <td>Buka beranda → klik "Lihat Katalog" → pilih kategori "Ikan Segar" → geser slider harga ≤ 40000</td>
+  <td>Daftar produk tersaring sesuai kriteria, jumlah produk yang ditampilkan terlihat di pojok atas</td>
+  <td class="pass">Pass</td>
+</tr>
+
+<tr>
+  <td>2</td>
+  <td>Pelanggan ingin tahu detail Nila Segar Hidup sebelum membeli</td>
+  <td>Pelanggan</td>
+  <td>Melihat Detail Produk</td>
+  <td>Klik kartu produk → baca deskripsi, harga, stok → atur jumlah 2 kg</td>
+  <td>Subtotal otomatis menjadi 2 × harga, tombol "Tambah ke Keranjang" aktif</td>
+  <td class="pass">Pass</td>
+</tr>
+
+<tr>
+  <td>3</td>
+  <td>Pelanggan menambah 2 produk berbeda lalu ubah qty di keranjang</td>
+  <td>Pelanggan</td>
+  <td>Mengelola Keranjang Belanja</td>
+  <td>Tambah Nila Segar 1 kg + Bumbu Pecak 2 pack → buka /cart → ubah qty Nila menjadi 3 → hapus Bumbu</td>
+  <td>Subtotal &amp; total ter-update, item Bumbu hilang, keranjang persist saat reload</td>
+  <td class="pass">Pass</td>
+</tr>
+
+<tr>
+  <td>4</td>
+  <td>Pelanggan melakukan checkout untuk alamat di Kab. Tangerang</td>
+  <td>Pelanggan</td>
+  <td>Checkout &amp; Membuat Pesanan</td>
+  <td>Isi nama, no WA "8123456789", pilih kecamatan "Cikupa" → kelurahan "Pasirjaya" → isi detail alamat → pilih BCA → klik Lanjutkan</td>
+  <td>Halaman /checkout/success terbuka dengan kode KI-YYYYMMDD-XXXX dan instruksi transfer</td>
+  <td class="pass">Pass</td>
+</tr>
+
+<tr>
+  <td>5</td>
+  <td>Pelanggan konfirmasi pembayaran via WhatsApp setelah transfer</td>
+  <td>Pelanggan</td>
+  <td>Konfirmasi Pembayaran via WhatsApp</td>
+  <td>Salin nomor rekening &amp; nominal → transfer di m-banking → kembali ke halaman sukses → klik "Konfirmasi via WhatsApp"</td>
+  <td>Aplikasi WhatsApp terbuka dengan pesan otomatis berisi kode pesanan, item, dan total</td>
+  <td class="pass">Pass</td>
+</tr>
+
+<tr>
+  <td>6</td>
+  <td>Pelanggan mengecek status pesanan setelah dibayar</td>
+  <td>Pelanggan</td>
+  <td>Lacak Pesanan</td>
+  <td>Buka /track → masukkan kode KI-20260606-AB12 → klik Lacak</td>
+  <td>Stepper status muncul (Dipesan/Dibayar/Dikirim/Selesai) sesuai posisi saat ini, ringkasan item tampil</td>
+  <td class="pass">Pass</td>
+</tr>
+
+<tr>
+  <td>7</td>
+  <td>Admin mengakses dashboard untuk memantau toko</td>
+  <td>Admin / Pemilik</td>
+  <td>Login Admin</td>
+  <td>Buka /admin/login → isi email &amp; password Firebase Auth → klik Masuk</td>
+  <td>Dashboard /admin tampil dengan kartu statistik (penjualan bulan ini, total pesanan, produk aktif)</td>
+  <td class="pass">Pass</td>
+</tr>
+
+<tr>
+  <td>8</td>
+  <td>Admin menambah produk baru "Nila Frozen Pack"</td>
+  <td>Admin / Pemilik</td>
+  <td>Mengelola Produk</td>
+  <td>Buka /admin/products → klik Tambah → upload gambar → isi nama "Nila Frozen Pack", harga 42000, stok 30 → Simpan</td>
+  <td>Toast "Produk ditambahkan", produk tampil di daftar admin dan langsung muncul di /products</td>
+  <td class="pass">Pass</td>
+</tr>
+
+<tr>
+  <td>9</td>
+  <td>Admin memajukan status pesanan ke "Dibayar"</td>
+  <td>Admin / Pemilik</td>
+  <td>Mengelola Pesanan</td>
+  <td>Buka /admin/orders → filter "Dipesan" → klik "Tandai Dibayar" pada baris pesanan → konfirmasi</td>
+  <td>Badge berubah ke "Dibayar", pelanggan melihat update di halaman /track</td>
+  <td class="pass">Pass</td>
+</tr>
+
+<tr>
+  <td>10</td>
+  <td>Admin membatalkan pesanan yang salah</td>
+  <td>Admin / Pemilik</td>
+  <td>Mengelola Pesanan (Membatalkan)</td>
+  <td>Buka /admin/orders → klik "Batalkan" pada pesanan ordered → konfirmasi "Ya, Batalkan"</td>
+  <td>Status menjadi "Dibatalkan" merah, pelanggan melihat banner pembatalan di /track</td>
+  <td class="pass">Pass</td>
+</tr>
+
+<tr>
+  <td>11</td>
+  <td>Admin menambah metode pembayaran DANA</td>
+  <td>Admin / Pemilik</td>
+  <td>Mengelola Metode Pembayaran</td>
+  <td>Buka /admin/payment-methods → klik Tambah → pilih DANA → isi atas nama &amp; nomor → Simpan</td>
+  <td>DANA tampil di tabel admin dan tersedia sebagai pilihan di halaman checkout pelanggan</td>
+  <td class="pass">Pass</td>
+</tr>
+
+<tr>
+  <td>12</td>
+  <td>Admin menjalankan analisis Apriori untuk menemukan kombinasi favorit</td>
+  <td>Admin / Pemilik</td>
+  <td>Menjalankan Analisis Apriori</td>
+  <td>Buka /admin/apriori → atur Min Support 10%, Min Confidence 30% → klik Jalankan Analisis</td>
+  <td>Tabel Association Rules tampil terurut confidence desc, hasil ter-simpan dan dipakai widget "Sering Dibeli Bersama" di toko</td>
+  <td class="pass">Pass</td>
+</tr>
+
+</tbody>
+</table>
+
+</body>
+</html>
