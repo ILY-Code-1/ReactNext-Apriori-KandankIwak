@@ -1,73 +1,160 @@
-import Icon from "@/components/ui/Icon";
+"use client";
 
-export default function TransactionsPlaceholderPage() {
+import { useEffect, useState } from "react";
+import Icon from "@/components/ui/Icon";
+import { getValidTransactions } from "@/lib/firebase/transactions";
+import { getAllProducts } from "@/lib/firebase/products";
+import { formatDateTime } from "@/lib/utils/format";
+
+export default function TransactionsPage() {
+  const [transactions, setTransactions] = useState([]);
+  const [products, setProducts] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  async function refresh() {
+    setLoading(true);
+    setError(null);
+    try {
+      const [txData, prodData] = await Promise.all([
+        getValidTransactions(),
+        getAllProducts(),
+      ]);
+      setTransactions(txData);
+      const prodMap = Object.fromEntries(prodData.map((p) => [p.id, p]));
+      setProducts(prodMap);
+    } catch {
+      setError("Gagal memuat transaksi.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function getProductName(productId) {
+    return products[productId]?.name || productId;
+  }
+
   return (
     <div className="col gap-18 kiup" style={{ minHeight: "calc(100vh - 130px)" }}>
-      <div
-        className="card"
-        style={{
-          padding: "18px 22px",
-          display: "flex",
-          gap: 14,
-          alignItems: "center",
-          background: "var(--sky-50)",
-          border: "1px solid var(--sky-100)",
-        }}
-      >
-        <span
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 11,
-            background: "#fff",
-            color: "var(--sky-600)",
-            display: "grid",
-            placeItems: "center",
-            flex: "0 0 auto",
-          }}
+      <div className="row">
+        <div className="col" style={{ gap: 2 }}>
+          <span className="mut" style={{ fontSize: 13, fontWeight: 600 }}>
+            {loading ? "Memuat…" : `${transactions.length} transaksi valid`}
+          </span>
+        </div>
+        <div className="spacer" />
+        <button
+          type="button"
+          className="btn btn-outline btn-sm"
+          onClick={refresh}
+          disabled={loading}
         >
-          <Icon name="info" size={20} />
-        </span>
-        <p style={{ margin: 0, fontSize: 13.5, color: "var(--body)", fontWeight: 600 }}>
-          Halaman ini menjadi <b style={{ color: "var(--navy)" }}>sumber data Apriori</b>. Setiap
-          baris berisi item yang dibeli bersama dalam satu transaksi. Akan diisi otomatis setelah
-          checkout pelanggan terhubung ke Firestore.
-        </p>
+          {loading ? <span className="ki-spin" /> : <Icon name="chevR" size={14} />} Refresh
+        </button>
       </div>
 
-      <div
-        className="card"
-        style={{
-          padding: "80px 20px",
-          textAlign: "center",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 12,
-          flex: 1,
-        }}
-      >
-        <span
+      {error && (
+        <div
+          className="row gap-8"
           style={{
-            width: 64,
-            height: 64,
-            borderRadius: 18,
-            background: "var(--bg-2)",
-            color: "var(--navy)",
-            display: "grid",
-            placeItems: "center",
+            background: "var(--red-50)",
+            color: "var(--red)",
+            padding: "10px 14px",
+            borderRadius: 12,
+            fontSize: 13,
+            fontWeight: 600,
           }}
         >
-          <Icon name="chart" size={32} />
-        </span>
-        <span style={{ fontWeight: 700, color: "var(--ink)", fontSize: 16 }}>
-          Belum ada data transaksi
-        </span>
-        <span className="mut" style={{ fontSize: 13.5, maxWidth: 420 }}>
-          Tabel akan menampilkan ID, tanggal, item, dan kode pesanan untuk setiap transaksi
-          checkout. Slicing UI tahap berikutnya.
-        </span>
+          <Icon name="info" size={16} /> {error}
+        </div>
+      )}
+
+      <div className="card" style={{ overflow: "hidden", flex: 1, display: "flex", flexDirection: "column" }}>
+        {loading ? (
+          <div
+            className="col"
+            style={{ alignItems: "center", gap: 12, padding: "60px 0" }}
+          >
+            <span className="ki-spin ki-spin-lg" />
+            <span className="mut" style={{ fontWeight: 600 }}>Memuat transaksi…</span>
+          </div>
+        ) : transactions.length === 0 ? (
+          <div
+            className="col"
+            style={{ alignItems: "center", gap: 10, padding: "60px 20px", textAlign: "center" }}
+          >
+            <span
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 16,
+                background: "var(--sky-50)",
+                color: "var(--sky-600)",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              <Icon name="chart" size={28} />
+            </span>
+            <span style={{ fontWeight: 700, color: "var(--ink)", fontSize: 16 }}>
+              Belum ada transaksi
+            </span>
+            <span className="mut" style={{ fontSize: 13.5, maxWidth: 320 }}>
+              Transaksi akan muncul setelah pesanan diselesaikan (status completed).
+            </span>
+          </div>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Kode Order</th>
+                <th>Produk</th>
+                <th>Sumber</th>
+                <th>Tanggal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.map((tx) => (
+                <tr key={tx.id}>
+                  <td>
+                    <span style={{ fontWeight: 700, color: "var(--navy)", fontFamily: "monospace" }}>
+                      {tx.order_code}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="col" style={{ gap: 4 }}>
+                      {tx.items.map((itemId, idx) => (
+                        <span key={idx} className="chip chip-ink">
+                          {getProductName(itemId)}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td>
+                    <span
+                      className="badge"
+                      style={{
+                        background: tx.source === "seed" ? "var(--bg-2)" : "var(--sky-50)",
+                        color: tx.source === "seed" ? "var(--muted)" : "var(--sky-600)",
+                      }}
+                    >
+                      {tx.source === "seed" ? "Sample" : "Checkout"}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="mut" style={{ fontSize: 13 }}>
+                      {tx.date ? formatDateTime(tx.date) : "—"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

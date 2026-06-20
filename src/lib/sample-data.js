@@ -173,3 +173,20 @@ export const SAMPLE_RECOMMENDATIONS = [
   { product_id: "fillet", confidence: 0.52 },
   { product_id: "nila", confidence: 0.41 },
 ];
+
+export const SAMPLE_TRANSACTIONS = [
+  {
+    id: "tx-001",
+    items: ["bundling"],
+    order_code: "KI-20260603-004",
+    source: "seed",
+    date: "3 Jun 2026",
+  },
+  {
+    id: "tx-002",
+    items: ["nila", "bundling"],
+    order_code: "KI-20260602-005",
+    source: "seed",
+    date: "2 Jun 2026",
+  },
+];
