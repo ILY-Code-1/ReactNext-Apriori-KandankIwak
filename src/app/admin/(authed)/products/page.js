@@ -13,7 +13,7 @@ import {
 import { uploadImage } from "@/lib/cloudinary/upload";
 import { rupiah } from "@/lib/utils/format";
 
-const CATEGORIES = ["Ikan Segar", "Olahan", "Budidaya", "Bumbu", "Paket"];
+const CATEGORIES = ["Ikan Segar", "Paket Anti Ribed", "Budidaya", "Paket"];
 
 const EMPTY_DRAFT = {
   name: "",

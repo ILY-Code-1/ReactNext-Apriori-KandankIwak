@@ -11,9 +11,8 @@ import { rupiah } from "@/lib/utils/format";
 
 const CATEGORIES = [
   { label: "Ikan Segar", illo: "whole", tint: "sky" },
-  { label: "Olahan", illo: "fillet", tint: "navy" },
+  { label: "Paket Anti Ribed", illo: "bundle", tint: "navy" },
   { label: "Budidaya", illo: "feed", tint: "sky" },
-  { label: "Bumbu", illo: "spice", tint: "navy" },
 ];
 
 const STATS = [
@@ -89,8 +88,7 @@ export default function HomePage() {
               langsung dari Kandank Iwak
             </h1>
             <p style={{ fontSize: 17, color: "var(--body)", maxWidth: 440, margin: 0, lineHeight: 1.6 }}>
-              Dari kolam budidaya ke meja makan Anda. Nila segar, fillet praktis, bibit unggul, hingga
-              bumbu pecak racikan sendiri.
+              Dari kolam budidaya ke meja makan Anda. Nila segar, paket anti ribed praktis, bibit unggul, dan pakan berkualitas.
             </p>
             <div className="row gap-12">
               <Link href="/products" className="btn btn-primary btn-lg">
@@ -185,7 +183,7 @@ export default function HomePage() {
         <div className="row" style={{ marginBottom: 18 }}>
           <h2 style={{ fontSize: 26 }}>Kategori Produk</h2>
         </div>
-        <div className="grid-cards-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 18, marginBottom: 44 }}>
+        <div className="grid-cards-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 18, marginBottom: 44 }}>
           {CATEGORIES.map((c) => (
             <Link
               key={c.label}

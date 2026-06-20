@@ -66,7 +66,7 @@ export default function StoreHeader() {
           }}
         >
           <Icon name="search" size={18} />
-          <span style={{ fontSize: 13.5, fontWeight: 600 }}>Cari ikan, bumbu…</span>
+          <span style={{ fontSize: 13.5, fontWeight: 600 }}>Cari ikan, paket…</span>
         </div>
         <Link
           href="/cart"

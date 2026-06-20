@@ -12,7 +12,7 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata = {
   title: "Kandank Iwak — Nila Segar Langsung dari Kolam",
   description:
-    "Belanja ikan nila segar, fillet, bibit, pakan, dan bumbu khas Kandank Iwak.",
+    "Belanja ikan nila segar, paket anti ribed, bibit, dan pakan berkualitas dari Kandank Iwak.",
 };
 
 export default function RootLayout({ children }) {

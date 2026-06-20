@@ -15,7 +15,7 @@ export const SAMPLE_PRODUCTS = [
   {
     id: "fillet",
     name: "Nila Fillet",
-    category: "Olahan",
+    category: "Paket Anti Ribed",
     unit: "per pack 500g",
     price: 32000,
     stock: 26,
@@ -52,22 +52,9 @@ export const SAMPLE_PRODUCTS = [
     tags: ["Protein 30%", "Pelet apung"],
   },
   {
-    id: "bumbu",
-    name: "Bumbu Pecak",
-    category: "Bumbu",
-    unit: "per sachet",
-    price: 8000,
-    stock: 90,
-    illo: "spice",
-    tint: "sky",
-    description:
-      "Bumbu pecak khas Kandank Iwak — racikan cabai, kencur, dan terasi. Tinggal ulek, sambal pecak siap menemani nila bakar.",
-    tags: ["Racikan rumahan", "Pedas segar"],
-  },
-  {
     id: "bundling",
     name: "Paket Bundling Nila + Bumbu",
-    category: "Paket",
+    category: "Paket Anti Ribed",
     unit: "per paket",
     price: 40000,
     stock: 30,
@@ -90,9 +77,9 @@ export const SAMPLE_ORDERS = [
     contact: "0812 3456 7890",
     items: [
       { product_id: "nila", name: "Nila Segar 1kg", price: 35000, qty: 1 },
-      { product_id: "bumbu", name: "Bumbu Pecak", price: 8000, qty: 1 },
+      { product_id: "bundling", name: "Paket Bundling Nila + Bumbu", price: 40000, qty: 1 },
     ],
-    total: 43000,
+    total: 75000,
     status: "ordered",
     notes: "Titip ke pos satpam",
     created_at: "4 Jun 2026",
@@ -117,9 +104,9 @@ export const SAMPLE_ORDERS = [
     items: [
       { product_id: "nila", name: "Nila Segar 1kg", price: 35000, qty: 1 },
       { product_id: "fillet", name: "Nila Fillet", price: 32000, qty: 1 },
-      { product_id: "bumbu", name: "Bumbu Pecak", price: 8000, qty: 1 },
+      { product_id: "bundling", name: "Paket Bundling Nila + Bumbu", price: 40000, qty: 1 },
     ],
-    total: 75000,
+    total: 107000,
     status: "shipped",
     notes: "",
     created_at: "3 Jun 2026",
@@ -142,9 +129,9 @@ export const SAMPLE_ORDERS = [
     contact: "0878 9090 1212",
     items: [
       { product_id: "nila", name: "Nila Segar 1kg", price: 35000, qty: 1 },
-      { product_id: "bumbu", name: "Bumbu Pecak", price: 8000, qty: 1 },
+      { product_id: "bundling", name: "Paket Bundling Nila + Bumbu", price: 40000, qty: 1 },
     ],
-    total: 43000,
+    total: 75000,
     status: "completed",
     notes: "",
     created_at: "2 Jun 2026",
@@ -155,9 +142,9 @@ export const SAMPLE_ORDERS = [
     contact: "0811 2020 3030",
     items: [
       { product_id: "fillet", name: "Nila Fillet", price: 32000, qty: 2 },
-      { product_id: "bumbu", name: "Bumbu Pecak", price: 8000, qty: 1 },
+      { product_id: "bundling", name: "Paket Bundling Nila + Bumbu", price: 40000, qty: 1 },
     ],
-    total: 72000,
+    total: 104000,
     status: "ordered",
     notes: "",
     created_at: "2 Jun 2026",
@@ -176,13 +163,13 @@ export const SAMPLE_SALES_SERIES = [
 
 export const SAMPLE_TOP_PRODUCTS = [
   { id: "nila", sold: 142, pct: 92 },
-  { id: "bumbu", sold: 118, pct: 76 },
+  { id: "bundling", sold: 118, pct: 76 },
   { id: "fillet", sold: 64, pct: 42 },
   { id: "pakan", sold: 39, pct: 26 },
 ];
 
 export const SAMPLE_RECOMMENDATIONS = [
-  { product_id: "bumbu", confidence: 0.78 },
+  { product_id: "bundling", confidence: 0.78 },
   { product_id: "fillet", confidence: 0.52 },
-  { product_id: "bundling", confidence: 0.41 },
+  { product_id: "nila", confidence: 0.41 },
 ];
